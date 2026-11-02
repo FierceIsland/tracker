@@ -4,6 +4,8 @@ import { getSettings } from "@/lib/settings";
 import { button, card, input, label } from "@/lib/ui";
 import type { Bucket } from "@/lib/types";
 
+const pct = (v: number) => Math.round(v * 1000) / 10;
+
 export default async function SettingsPage() {
   const sb = await supabaseServer();
   const [settings, b] = await Promise.all([getSettings(sb), sb.from("buckets").select("*").order("sort")]);
@@ -18,12 +20,33 @@ export default async function SettingsPage() {
 
       <form action={saveSettings} className={card + " space-y-5"}>
         <div>
-          <h2 className="mb-2 text-sm font-semibold">Projection assumptions</h2>
+          <h2 className="mb-2 text-sm font-semibold">S-corp taxes</h2>
           <div className="grid gap-3 sm:grid-cols-4">
             <div>
-              <label className={label}>Estimated tax rate (%)</label>
-              <input name="tax_rate_pct" type="number" step="0.5" min="0" max="100" defaultValue={Math.round(settings.tax_rate * 1000) / 10} className={input} />
+              <label className={label}>Owner salary (per year)</label>
+              <input name="owner_salary" type="number" step="1000" min="0" defaultValue={settings.owner_salary} className={input} />
             </div>
+            <div>
+              <label className={label}>Employer payroll tax (%)</label>
+              <input name="employer_payroll_pct" type="number" step="0.01" min="0" max="100" defaultValue={pct(settings.employer_payroll_rate)} className={input} />
+            </div>
+            <div>
+              <label className={label}>Employee payroll tax (%)</label>
+              <input name="employee_payroll_pct" type="number" step="0.01" min="0" max="100" defaultValue={pct(settings.employee_payroll_rate)} className={input} />
+            </div>
+            <div>
+              <label className={label}>Income tax, federal + state (%)</label>
+              <input name="income_tax_pct" type="number" step="0.5" min="0" max="100" defaultValue={pct(settings.income_tax_rate)} className={input} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-stone-500">
+            These are placeholders. Your accountant can tell you a reasonable salary and your effective income tax rate. Income tax applies to salary plus the profit passed through to you.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-sm font-semibold">Projection assumptions</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className={label}>Expected new sites / month</label>
               <input name="new_sites_per_month" type="number" step="0.5" min="0" defaultValue={settings.new_sites_per_month} className={input} />
@@ -37,9 +60,7 @@ export default async function SettingsPage() {
               <input name="direct_cost_per_site" type="number" step="50" min="0" defaultValue={settings.direct_cost_per_site} className={input} />
             </div>
           </div>
-          <p className="mt-2 text-xs text-stone-500">
-            The tax rate is a flat placeholder, so use the rate your accountant gives you. Set expected sites to 0 if you add every upcoming site as a project.
-          </p>
+          <p className="mt-2 text-xs text-stone-500">Set expected sites to 0 if you add every upcoming site as a project.</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">

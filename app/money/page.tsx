@@ -1,7 +1,8 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { addExpense, addInvoice, addRecurring, deleteExpense, deleteRecurring, markInvoicePaid, toggleRecurring } from "../actions";
+import { addExpense, addInvoice, addRecurring, cancelRecurring, deleteExpense, deleteRecurring, markInvoicePaid, reactivateRecurring } from "../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
-import { monthlyEquivalent, todayBoise, usd } from "@/lib/format";
+import { todayBoise, usd } from "@/lib/format";
+import { chargedInMonth, monthlyCostFor } from "@/lib/projection";
 import type { Client, Expense, Invoice, Project, RecurringCost } from "@/lib/types";
 
 const categories = ["contractor", "software", "compute", "advertising", "office", "insurance", "accounting", "tax", "equipment", "other"];
@@ -23,9 +24,8 @@ export default async function MoneyPage() {
   const clientName = (id: string | null) => clients.find((x) => x.id === id)?.name ?? "";
 
   const outstanding = invoices.filter((x) => !x.paid_on).reduce((s, x) => s + Number(x.amount), 0);
-  const recurringMonthly = recurring
-    .filter((x) => x.active)
-    .reduce((s, x) => s + monthlyEquivalent(Number(x.amount), x.cadence), 0);
+  const thisMonth = todayBoise().slice(0, 7);
+  const recurringMonthly = monthlyCostFor(recurring, thisMonth);
 
   return (
     <div className="space-y-8">
@@ -164,9 +164,16 @@ export default async function MoneyPage() {
               <option value="per_client">Per client</option>
             </select>
           </div>
+          <div>
+            <label className={label}>Started</label>
+            <input name="started_on" type="date" defaultValue={todayBoise()} className={input} />
+          </div>
           <div className="sm:col-span-6">
             <button className={button}>Add recurring cost</button>
           </div>
+          <p className="text-xs text-stone-500 sm:col-span-6">
+            Yearly costs are spread across 12 months. To change a price, end the old cost and add a new one, so past months keep what was actually charged.
+          </p>
         </form>
         <div className={card + " overflow-x-auto p-0"}>
           <table className="w-full">
@@ -176,36 +183,51 @@ export default async function MoneyPage() {
                 <th className={th}>Vendor</th>
                 <th className={th}>Amount</th>
                 <th className={th}>Counts as</th>
-                <th className={th}>Active</th>
+                <th className={th}>Started</th>
+                <th className={th}>Last month</th>
+                <th className={th}></th>
               </tr>
             </thead>
             <tbody>
-              {recurring.map((x) => (
-                <tr key={x.id} className={"border-b border-stone-100 last:border-0" + (x.active ? "" : " text-stone-400")}>
-                  <td className={td}>{x.name}</td>
-                  <td className={td}>{x.vendor}</td>
-                  <td className={td}>
-                    {usd(Number(x.amount))} / {x.cadence === "annual" ? "yr" : "mo"}
-                  </td>
-                  <td className={td}>{x.allocation.replace("_", " ")}</td>
-                  <td className={td}>
-                    <div className="flex gap-1">
-                      <form action={toggleRecurring}>
-                        <input type="hidden" name="id" value={x.id} />
-                        <input type="hidden" name="active" value={String(!x.active)} />
-                        <button className={ghostButton}>{x.active ? "Pause" : "Resume"}</button>
-                      </form>
-                      <form action={deleteRecurring}>
-                        <input type="hidden" name="id" value={x.id} />
-                        <button className={ghostButton}>Delete</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {recurring.map((x) => {
+                const running = chargedInMonth(x, thisMonth);
+                const stopped = x.ended_on != null || x.active === false;
+                return (
+                  <tr key={x.id} className={"border-b border-stone-100 last:border-0" + (running ? "" : " text-stone-400")}>
+                    <td className={td}>{x.name}</td>
+                    <td className={td}>{x.vendor}</td>
+                    <td className={td}>
+                      {usd(Number(x.amount))} / {x.cadence === "annual" ? "yr" : "mo"}
+                    </td>
+                    <td className={td}>{x.allocation.replace("_", " ")}</td>
+                    <td className={td}>{(x.started_on ?? x.created_at).slice(0, 7)}</td>
+                    <td className={td}>{x.ended_on ? x.ended_on.slice(0, 7) : stopped ? "paused" : "running"}</td>
+                    <td className={td}>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {stopped ? (
+                          <form action={reactivateRecurring}>
+                            <input type="hidden" name="id" value={x.id} />
+                            <button className={ghostButton}>Restart</button>
+                          </form>
+                        ) : (
+                          <form action={cancelRecurring} className="flex items-center gap-1">
+                            <input type="hidden" name="id" value={x.id} />
+                            <input name="ended_on" type="date" defaultValue={todayBoise()} className="rounded border border-stone-300 px-1 py-0.5 text-xs" />
+                            <button className={ghostButton}>End</button>
+                          </form>
+                        )}
+                        <form action={deleteRecurring}>
+                          <input type="hidden" name="id" value={x.id} />
+                          <button className={ghostButton}>Delete</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {recurring.length === 0 && (
                 <tr>
-                  <td className={td + " text-stone-500"} colSpan={5}>
+                  <td className={td + " text-stone-500"} colSpan={7}>
                     No recurring costs yet.
                   </td>
                 </tr>

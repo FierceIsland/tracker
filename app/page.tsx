@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { getSettings, RETAINER_BUCKETS } from "@/lib/settings";
-import { daysAgo, hrs, monthStart, monthlyEquivalent, usd } from "@/lib/format";
+import { daysAgo, hrs, monthStart, usd } from "@/lib/format";
+import { monthlyCostFor } from "@/lib/projection";
 import { card, td, th } from "@/lib/ui";
 import type { Bucket, Client, Expense, Invoice, Project, RecurringCost, TimeEntry } from "@/lib/types";
 
@@ -29,7 +30,7 @@ export default async function Dashboard() {
     sb.from("clients").select("*"),
     sb.from("invoices").select("*"),
     sb.from("expenses").select("*").gte("incurred_on", start),
-    sb.from("recurring_costs").select("*").eq("active", true),
+    sb.from("recurring_costs").select("*"),
   ]);
 
   const buckets = (b.data ?? []) as Bucket[];
@@ -69,7 +70,7 @@ export default async function Dashboard() {
   const collectedMonth = invoices.filter((x) => x.paid_on && x.paid_on >= start).reduce((s, x) => s + Number(x.amount), 0);
   const outstanding = invoices.filter((x) => !x.paid_on).reduce((s, x) => s + Number(x.amount), 0);
   const oneOff = expenses.reduce((s, x) => s + Number(x.amount), 0);
-  const recurringMonthly = recurring.reduce((s, x) => s + monthlyEquivalent(Number(x.amount), x.cadence), 0);
+  const recurringMonthly = monthlyCostFor(recurring, start.slice(0, 7));
   const costsMonth = oneOff + recurringMonthly;
   const mrr = clients
     .filter((x) => x.status === "active")

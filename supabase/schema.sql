@@ -142,3 +142,7 @@ begin
     );
   end loop;
 end $$;
+
+-- Subscription history: first and last month each recurring cost was charged
+alter table recurring_costs add column if not exists started_on date;
+alter table recurring_costs add column if not exists ended_on date;

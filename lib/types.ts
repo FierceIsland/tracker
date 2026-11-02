@@ -66,4 +66,7 @@ export type RecurringCost = {
   cadence: "monthly" | "annual";
   allocation: string;
   active: boolean;
+  started_on: string | null; // first month charged
+  ended_on: string | null; // last month charged; null means still running
+  created_at: string;
 };

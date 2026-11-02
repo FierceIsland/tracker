@@ -5,13 +5,19 @@ export type Settings = {
   target_site_hours: number;
   target_retainer_hours: number; // per retainer client per month
   owner_pay_target: number;
-  tax_rate: number; // estimated tax as a fraction of profit, e.g. 0.25
+  // S-corp tax model
+  owner_salary: number; // annual W-2 salary paid to the owner
+  employer_payroll_rate: number; // employer share of payroll tax, as a fraction of salary
+  employee_payroll_rate: number; // employee share, withheld from salary
+  income_tax_rate: number; // effective federal + state income tax on salary + pass-through profit
+  // Revenue assumptions
   new_sites_per_month: number; // expected new sites not yet entered as projects
   avg_site_price: number;
   direct_cost_per_site: number;
 };
 
 // Defaults come from the pricing model: 2 sites a month at 10 hours, retainers about 67 hours.
+// The tax numbers are placeholders until an accountant gives the real ones.
 export const DEFAULT_SETTINGS: Settings = {
   planned: {
     site_build: 20,
@@ -31,7 +37,10 @@ export const DEFAULT_SETTINGS: Settings = {
   target_site_hours: 10,
   target_retainer_hours: 6,
   owner_pay_target: 200000,
-  tax_rate: 0.25, // placeholder: replace with the rate your accountant gives you
+  owner_salary: 80000,
+  employer_payroll_rate: 0.0765,
+  employee_payroll_rate: 0.0765,
+  income_tax_rate: 0.24,
   new_sites_per_month: 2,
   avg_site_price: 4500,
   direct_cost_per_site: 1500,

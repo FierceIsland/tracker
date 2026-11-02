@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
-import { toNum, toStr } from "@/lib/format";
+import { toNum, toStr, todayBoise } from "@/lib/format";
 
 // ---- Auth ---------------------------------------------------------------
 
@@ -146,24 +146,42 @@ export async function addExpense(formData: FormData) {
 
 export async function addRecurring(formData: FormData) {
   const sb = await supabaseServer();
-  await sb.from("recurring_costs").insert({
+  const row = {
     name: String(formData.get("name") ?? "").trim(),
     vendor: toStr(formData.get("vendor")),
     amount: toNum(formData.get("amount")),
     cadence: String(formData.get("cadence") ?? "monthly"),
     allocation: String(formData.get("allocation") ?? "fixed"),
-  });
+  };
+  const { error } = await sb.from("recurring_costs").insert({ ...row, started_on: toStr(formData.get("started_on")) });
+  // A database without the start/end columns yet: save the cost without a start date.
+  if (error) await sb.from("recurring_costs").insert(row);
   revalidatePath("/money");
+  revalidatePath("/projection");
   revalidatePath("/");
 }
 
-export async function toggleRecurring(formData: FormData) {
+// Ending a subscription keeps it in every month it was charged, through the end month.
+export async function cancelRecurring(formData: FormData) {
   const sb = await supabaseServer();
-  await sb
+  const id = String(formData.get("id"));
+  const { error } = await sb
     .from("recurring_costs")
-    .update({ active: String(formData.get("active")) === "true" })
-    .eq("id", String(formData.get("id")));
+    .update({ active: false, ended_on: toStr(formData.get("ended_on")) ?? todayBoise() })
+    .eq("id", id);
+  if (error) await sb.from("recurring_costs").update({ active: false }).eq("id", id);
   revalidatePath("/money");
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+export async function reactivateRecurring(formData: FormData) {
+  const sb = await supabaseServer();
+  const id = String(formData.get("id"));
+  const { error } = await sb.from("recurring_costs").update({ active: true, ended_on: null }).eq("id", id);
+  if (error) await sb.from("recurring_costs").update({ active: true }).eq("id", id);
+  revalidatePath("/money");
+  revalidatePath("/projection");
   revalidatePath("/");
 }
 
@@ -185,6 +203,8 @@ export async function deleteExpense(formData: FormData) {
 
 // ---- Settings -----------------------------------------------------------
 
+const pct = (v: FormDataEntryValue | null) => Math.min(100, Math.max(0, toNum(v))) / 100;
+
 export async function saveSettings(formData: FormData) {
   const sb = await supabaseServer();
   const {
@@ -203,7 +223,10 @@ export async function saveSettings(formData: FormData) {
       target_site_hours: toNum(formData.get("target_site_hours")),
       target_retainer_hours: toNum(formData.get("target_retainer_hours")),
       owner_pay_target: toNum(formData.get("owner_pay_target")),
-      tax_rate: Math.min(100, Math.max(0, toNum(formData.get("tax_rate_pct")))) / 100,
+      owner_salary: toNum(formData.get("owner_salary")),
+      employer_payroll_rate: pct(formData.get("employer_payroll_pct")),
+      employee_payroll_rate: pct(formData.get("employee_payroll_pct")),
+      income_tax_rate: pct(formData.get("income_tax_pct")),
       new_sites_per_month: toNum(formData.get("new_sites_per_month")),
       avg_site_price: toNum(formData.get("avg_site_price")),
       direct_cost_per_site: toNum(formData.get("direct_cost_per_site")),
