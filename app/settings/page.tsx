@@ -13,10 +13,35 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold">Settings</h1>
       <p className="text-sm text-stone-600">
-        These are the plan numbers from your pricing model. The dashboard compares your logged hours against them.
+        Plan numbers from your pricing model. The dashboard compares logged hours against them, and the Projection page uses the money assumptions.
       </p>
 
       <form action={saveSettings} className={card + " space-y-5"}>
+        <div>
+          <h2 className="mb-2 text-sm font-semibold">Projection assumptions</h2>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <label className={label}>Estimated tax rate (%)</label>
+              <input name="tax_rate_pct" type="number" step="0.5" min="0" max="100" defaultValue={Math.round(settings.tax_rate * 1000) / 10} className={input} />
+            </div>
+            <div>
+              <label className={label}>Expected new sites / month</label>
+              <input name="new_sites_per_month" type="number" step="0.5" min="0" defaultValue={settings.new_sites_per_month} className={input} />
+            </div>
+            <div>
+              <label className={label}>Average site price</label>
+              <input name="avg_site_price" type="number" step="100" min="0" defaultValue={settings.avg_site_price} className={input} />
+            </div>
+            <div>
+              <label className={label}>Direct cost per new site</label>
+              <input name="direct_cost_per_site" type="number" step="50" min="0" defaultValue={settings.direct_cost_per_site} className={input} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-stone-500">
+            The tax rate is a flat placeholder, so use the rate your accountant gives you. Set expected sites to 0 if you add every upcoming site as a project.
+          </p>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className={label}>Owner pay target</label>
@@ -28,13 +53,7 @@ export default async function SettingsPage() {
           </div>
           <div>
             <label className={label}>Target hours per retainer client / mo</label>
-            <input
-              name="target_retainer_hours"
-              type="number"
-              step="0.5"
-              defaultValue={settings.target_retainer_hours}
-              className={input}
-            />
+            <input name="target_retainer_hours" type="number" step="0.5" defaultValue={settings.target_retainer_hours} className={input} />
           </div>
         </div>
 
@@ -44,14 +63,7 @@ export default async function SettingsPage() {
             {buckets.map((x) => (
               <div key={x.key}>
                 <label className={label}>{x.label}</label>
-                <input
-                  name={"planned_" + x.key}
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  defaultValue={settings.planned[x.key] ?? 0}
-                  className={input}
-                />
+                <input name={"planned_" + x.key} type="number" step="0.5" min="0" defaultValue={settings.planned[x.key] ?? 0} className={input} />
               </div>
             ))}
           </div>

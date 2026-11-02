@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Tracker", description: "Hours, bills
 
 const links = [
   { href: "/", label: "Dashboard" },
+  { href: "/projection", label: "Projection" },
   { href: "/time", label: "Time" },
   { href: "/clients", label: "Clients" },
   { href: "/projects", label: "Projects" },

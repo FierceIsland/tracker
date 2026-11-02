@@ -1,5 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { addExpense, addInvoice, addRecurring, markInvoicePaid, toggleRecurring } from "../actions";
+import { addExpense, addInvoice, addRecurring, deleteExpense, deleteRecurring, markInvoicePaid, toggleRecurring } from "../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
 import { monthlyEquivalent, todayBoise, usd } from "@/lib/format";
 import type { Client, Expense, Invoice, Project, RecurringCost } from "@/lib/types";
@@ -133,7 +133,7 @@ export default async function MoneyPage() {
       {/* Recurring costs ------------------------------------------------ */}
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-semibold">Recurring costs</h2>
+          <h2 className="font-semibold">Recurring costs (monthly or yearly)</h2>
           <p className="text-sm text-stone-600">Monthly total: {usd(recurringMonthly)}</p>
         </div>
         <form action={addRecurring} className={card + " grid gap-3 sm:grid-cols-6"}>
@@ -189,11 +189,17 @@ export default async function MoneyPage() {
                   </td>
                   <td className={td}>{x.allocation.replace("_", " ")}</td>
                   <td className={td}>
-                    <form action={toggleRecurring}>
-                      <input type="hidden" name="id" value={x.id} />
-                      <input type="hidden" name="active" value={String(!x.active)} />
-                      <button className={ghostButton}>{x.active ? "Pause" : "Resume"}</button>
-                    </form>
+                    <div className="flex gap-1">
+                      <form action={toggleRecurring}>
+                        <input type="hidden" name="id" value={x.id} />
+                        <input type="hidden" name="active" value={String(!x.active)} />
+                        <button className={ghostButton}>{x.active ? "Pause" : "Resume"}</button>
+                      </form>
+                      <form action={deleteRecurring}>
+                        <input type="hidden" name="id" value={x.id} />
+                        <button className={ghostButton}>Delete</button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -282,6 +288,7 @@ export default async function MoneyPage() {
                 <th className={th}>Type</th>
                 <th className={th}>Client</th>
                 <th className={th}>Amount</th>
+                <th className={th}></th>
               </tr>
             </thead>
             <tbody>
@@ -293,11 +300,17 @@ export default async function MoneyPage() {
                   <td className={td}>{x.kind}</td>
                   <td className={td}>{clientName(x.client_id)}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
+                  <td className={td}>
+                    <form action={deleteExpense}>
+                      <input type="hidden" name="id" value={x.id} />
+                      <button className={ghostButton}>Delete</button>
+                    </form>
+                  </td>
                 </tr>
               ))}
               {expenses.length === 0 && (
                 <tr>
-                  <td className={td + " text-stone-500"} colSpan={6}>
+                  <td className={td + " text-stone-500"} colSpan={7}>
                     No expenses yet.
                   </td>
                 </tr>

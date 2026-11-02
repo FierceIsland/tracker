@@ -167,6 +167,22 @@ export async function toggleRecurring(formData: FormData) {
   revalidatePath("/");
 }
 
+export async function deleteRecurring(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb.from("recurring_costs").delete().eq("id", String(formData.get("id")));
+  revalidatePath("/money");
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+export async function deleteExpense(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb.from("expenses").delete().eq("id", String(formData.get("id")));
+  revalidatePath("/money");
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
 // ---- Settings -----------------------------------------------------------
 
 export async function saveSettings(formData: FormData) {
@@ -187,9 +203,14 @@ export async function saveSettings(formData: FormData) {
       target_site_hours: toNum(formData.get("target_site_hours")),
       target_retainer_hours: toNum(formData.get("target_retainer_hours")),
       owner_pay_target: toNum(formData.get("owner_pay_target")),
+      tax_rate: Math.min(100, Math.max(0, toNum(formData.get("tax_rate_pct")))) / 100,
+      new_sites_per_month: toNum(formData.get("new_sites_per_month")),
+      avg_site_price: toNum(formData.get("avg_site_price")),
+      direct_cost_per_site: toNum(formData.get("direct_cost_per_site")),
     },
     updated_at: new Date().toISOString(),
   });
   revalidatePath("/settings");
+  revalidatePath("/projection");
   revalidatePath("/");
 }
