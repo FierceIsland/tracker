@@ -17,6 +17,7 @@ const rows: Row[] = [
   { label: "Subscriptions and recurring costs", get: (p) => p.recurringCosts, muted: true },
   { label: "One-off expenses", get: (p) => p.oneOffCosts, muted: true },
   { label: "Direct cost of new sites", get: (p) => p.siteCosts, muted: true },
+  { label: "Payment processing fees", get: (p) => p.processingFees, muted: true },
   { label: "Total expenses", get: (p) => p.expenses, bold: true },
   { label: "Business profit, before tax", get: (p) => p.beforeTax, bold: true },
   { label: "Owner salary", get: (p) => p.salary, muted: true },
@@ -166,7 +167,7 @@ export default async function ProjectionPage() {
         <p>
           <strong>Income</strong> counts every active client&apos;s monthly retainer and hosting, the unpaid balance of planned and active website and drone
           projects (in the month they are due), and the new sites you expect to sell: {settings.new_sites_per_month} a month at{" "}
-          {usd(settings.avg_site_price)}. If you have entered every upcoming site as a project, set expected sites to 0 on the Settings page so they are not counted twice.
+          {usd(settings.avg_site_price)}. If you have entered every upcoming site as a project, set expected sites to 0 on the Settings page so they are not counted twice. Payment processing comes out as a {pctText(settings.processing_fee_rate)} fee on all income.
         </p>
         <p>
           <strong>Taxes</strong> follow an S-corp: the business pays you a salary of {usd(settings.owner_salary)} a year plus the employer payroll tax on it (

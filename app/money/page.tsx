@@ -1,5 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { addExpense, addInvoice, addRecurring, cancelRecurring, deleteExpense, deleteRecurring, markInvoicePaid, reactivateRecurring } from "../actions";
+import { addExpense, addInvoice, addRecurring, cancelRecurring, deleteExpense, deleteInvoice, deleteRecurring, reactivateRecurring } from "../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
 import { todayBoise, usd } from "@/lib/format";
 import { chargedInMonth, monthlyCostFor } from "@/lib/projection";
@@ -23,7 +23,6 @@ export default async function MoneyPage() {
   const projects = (p.data ?? []) as Pick<Project, "id" | "name">[];
   const clientName = (id: string | null) => clients.find((x) => x.id === id)?.name ?? "";
 
-  const outstanding = invoices.filter((x) => !x.paid_on).reduce((s, x) => s + Number(x.amount), 0);
   const thisMonth = todayBoise().slice(0, 7);
   const recurringMonthly = monthlyCostFor(recurring, thisMonth);
 
@@ -35,7 +34,9 @@ export default async function MoneyPage() {
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-semibold">Invoices</h2>
-          <p className="text-sm text-stone-600">Outstanding: {usd(outstanding)}</p>
+          <p className="text-xs text-stone-500">
+            Monthly retainers and hosting are counted automatically from each client&apos;s plan. Add only extras here, like projects and drone jobs.
+          </p>
         </div>
         <form action={addInvoice} className={card + " grid gap-3 sm:grid-cols-6"}>
           <div className="sm:col-span-2">
@@ -76,14 +77,6 @@ export default async function MoneyPage() {
             <label className={label}>Issued</label>
             <input name="issued_on" type="date" defaultValue={todayBoise()} className={input} />
           </div>
-          <div>
-            <label className={label}>Due</label>
-            <input name="due_on" type="date" className={input} />
-          </div>
-          <div>
-            <label className={label}>Paid on</label>
-            <input name="paid_on" type="date" className={input} />
-          </div>
           <div className="flex items-end">
             <button className={button + " w-full"}>Add invoice</button>
           </div>
@@ -96,7 +89,7 @@ export default async function MoneyPage() {
                 <th className={th}>Client</th>
                 <th className={th}>Description</th>
                 <th className={th}>Amount</th>
-                <th className={th}>Paid</th>
+                <th className={th}></th>
               </tr>
             </thead>
             <tbody>
@@ -107,14 +100,10 @@ export default async function MoneyPage() {
                   <td className={td}>{[x.number, x.description].filter(Boolean).join(" · ")}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
                   <td className={td}>
-                    {x.paid_on ? (
-                      x.paid_on
-                    ) : (
-                      <form action={markInvoicePaid}>
-                        <input type="hidden" name="id" value={x.id} />
-                        <button className={ghostButton}>Mark paid</button>
-                      </form>
-                    )}
+                    <form action={deleteInvoice}>
+                      <input type="hidden" name="id" value={x.id} />
+                      <button className={ghostButton}>Delete</button>
+                    </form>
                   </td>
                 </tr>
               ))}

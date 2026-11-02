@@ -13,6 +13,7 @@ export type Projection = {
   recurringCosts: number;
   oneOffCosts: number;
   siteCosts: number;
+  processingFees: number;
   expenses: number;
   beforeTax: number; // business profit before owner pay and taxes
   salary: number;
@@ -107,7 +108,8 @@ export function project(period: Period, d: Data): Projection {
     .filter((e) => months.has(e.incurred_on.slice(0, 7)))
     .reduce((sum, e) => sum + Number(e.amount), 0);
   const siteCosts = (bookedSites + expectedSites) * s.direct_cost_per_site;
-  const expenses = recurringCosts + oneOffCosts + siteCosts;
+  const processingFees = revenue * s.processing_fee_rate;
+  const expenses = recurringCosts + oneOffCosts + siteCosts + processingFees;
 
   // S-corp taxes. The business pays the owner a salary and the employer share of payroll tax.
   // What is left passes through to the owner as profit. Income tax applies to salary plus
@@ -129,6 +131,7 @@ export function project(period: Period, d: Data): Projection {
     recurringCosts,
     oneOffCosts,
     siteCosts,
+    processingFees,
     expenses,
     beforeTax,
     salary,

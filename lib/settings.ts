@@ -13,7 +13,8 @@ export type Settings = {
   // Revenue assumptions
   new_sites_per_month: number; // expected new sites not yet entered as projects
   avg_site_price: number;
-  direct_cost_per_site: number;
+  direct_cost_per_site: number; // excludes payment processing, which is a separate percentage
+  processing_fee_rate: number; // payment processing fee as a fraction of all income
 };
 
 // Defaults come from the pricing model: 2 sites a month at 10 hours, retainers about 67 hours.
@@ -43,7 +44,8 @@ export const DEFAULT_SETTINGS: Settings = {
   income_tax_rate: 0.24,
   new_sites_per_month: 2,
   avg_site_price: 4500,
-  direct_cost_per_site: 1500,
+  direct_cost_per_site: 1350,
+  processing_fee_rate: 0.03,
 };
 
 export const RETAINER_BUCKETS = ["seo", "aeo_geo", "gbp", "reviews", "ads"];

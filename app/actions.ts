@@ -126,8 +126,9 @@ export async function addInvoice(formData: FormData) {
     description: toStr(formData.get("description")),
     amount: toNum(formData.get("amount")),
     issued_on: toStr(formData.get("issued_on")) ?? undefined,
-    due_on: toStr(formData.get("due_on")),
-    paid_on: toStr(formData.get("paid_on")),
+    due_on: null,
+    // An invoice that has gone out counts as done, so there is no separate paid step.
+    paid_on: toStr(formData.get("issued_on")) ?? todayBoise(),
   });
   revalidatePath("/money");
   revalidatePath("/");
@@ -245,6 +246,7 @@ export async function saveSettings(formData: FormData) {
       new_sites_per_month: toNum(formData.get("new_sites_per_month")),
       avg_site_price: toNum(formData.get("avg_site_price")),
       direct_cost_per_site: toNum(formData.get("direct_cost_per_site")),
+      processing_fee_rate: pct(formData.get("processing_fee_pct")),
     },
     updated_at: new Date().toISOString(),
   });
@@ -327,6 +329,14 @@ export async function deleteTerms(formData: FormData) {
   const clientId = String(formData.get("client_id"));
   await sb.from("client_terms").delete().eq("id", String(formData.get("id")));
   revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+export async function deleteInvoice(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb.from("invoices").delete().eq("id", String(formData.get("id")));
+  revalidatePath("/money");
   revalidatePath("/projection");
   revalidatePath("/");
 }

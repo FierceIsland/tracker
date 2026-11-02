@@ -69,13 +69,16 @@ export default async function Dashboard() {
   const perClient = retainerClients.length ? retainerHours90 / retainerClients.length / 3 : 0;
 
   // Money this month.
-  const invoicedMonth = invoices.filter((x) => x.issued_on >= start).reduce((s, x) => s + Number(x.amount), 0);
-  const collectedMonth = invoices.filter((x) => x.paid_on && x.paid_on >= start).reduce((s, x) => s + Number(x.amount), 0);
-  const outstanding = invoices.filter((x) => !x.paid_on).reduce((s, x) => s + Number(x.amount), 0);
+  // Monthly retainers and hosting count as invoiced automatically from each client's plan.
+  // Invoices entered by hand are the extras: projects, drone jobs, add-ons.
+  const invoicedMonth = invoices.filter((x) => x.issued_on.slice(0, 7) === start.slice(0, 7)).reduce((s, x) => s + Number(x.amount), 0);
   const oneOff = expenses.reduce((s, x) => s + Number(x.amount), 0);
   const recurringMonthly = monthlyCostFor(recurring, start.slice(0, 7));
-  const costsMonth = oneOff + recurringMonthly;
   const mrr = clientIncomeFor(clients, clientTerms, start.slice(0, 7));
+  const invoicedTotal = mrr + invoicedMonth;
+  const processingFees = invoicedTotal * settings.processing_fee_rate;
+  const costsMonth = oneOff + recurringMonthly + processingFees;
+  const profitMonth = invoicedTotal - costsMonth;
 
   const flag = (actual: number, target: number) => (actual > 0 && actual > target ? "text-red-700 font-semibold" : "");
 
@@ -86,8 +89,8 @@ export default async function Dashboard() {
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat title="Hours this month" value={hrs(totalHours)} sub={"plan " + hrs(plannedTotal) + " · billable " + hrs(billableHours)} />
         <Stat title="Monthly recurring" value={usd(mrr)} sub={clients.filter((x) => x.status === "active").length + " active clients"} />
-        <Stat title="Collected this month" value={usd(collectedMonth)} sub={"invoiced " + usd(invoicedMonth)} />
-        <Stat title="Outstanding" value={usd(outstanding)} sub="unpaid invoices" />
+        <Stat title="Invoiced this month" value={usd(invoicedTotal)} sub={"retainers + hosting " + usd(mrr) + " · other " + usd(invoicedMonth)} />
+        <Stat title="Profit this month" value={usd(profitMonth)} sub="invoiced minus costs, before tax" />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -104,7 +107,7 @@ export default async function Dashboard() {
         <Stat
           title="Costs this month"
           value={usd(costsMonth)}
-          sub={"recurring " + usd(recurringMonthly) + " · one-off " + usd(oneOff)}
+          sub={"recurring " + usd(recurringMonthly) + " · one-off " + usd(oneOff) + " · processing " + usd(processingFees)}
         />
       </div>
 

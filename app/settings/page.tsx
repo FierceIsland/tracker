@@ -46,7 +46,7 @@ export default async function SettingsPage() {
 
         <div>
           <h2 className="mb-2 text-sm font-semibold">Projection assumptions</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <div>
               <label className={label}>Expected new sites / month</label>
               <input name="new_sites_per_month" type="number" step="0.5" min="0" defaultValue={settings.new_sites_per_month} className={input} />
@@ -59,8 +59,14 @@ export default async function SettingsPage() {
               <label className={label}>Direct cost per new site</label>
               <input name="direct_cost_per_site" type="number" step="50" min="0" defaultValue={settings.direct_cost_per_site} className={input} />
             </div>
+            <div>
+              <label className={label}>Payment processing fee (%)</label>
+              <input name="processing_fee_pct" type="number" step="0.1" min="0" max="100" defaultValue={pct(settings.processing_fee_rate)} className={input} />
+            </div>
           </div>
-          <p className="mt-2 text-xs text-stone-500">Set expected sites to 0 if you add every upcoming site as a project.</p>
+          <p className="mt-2 text-xs text-stone-500">
+            Set expected sites to 0 if you add every upcoming site as a project. Direct cost per site leaves out payment processing, which is the separate percentage on all income.
+          </p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
