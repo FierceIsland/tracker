@@ -1,6 +1,7 @@
-import type { Client, Expense, Invoice, Project, RecurringCost } from "./types";
+import type { Client, ClientTerm, Expense, Invoice, Project, RecurringCost } from "./types";
 import type { Settings } from "./settings";
 import { monthlyEquivalent } from "./format";
+import { clientIncomeFor } from "./clientTerms";
 
 export type Period = { key: string; label: string; months: string[] };
 
@@ -25,6 +26,7 @@ export type Projection = {
 
 type Data = {
   clients: Client[];
+  clientTerms: ClientTerm[];
   projects: Project[];
   invoices: Invoice[];
   expenses: Expense[];
@@ -72,11 +74,8 @@ export function project(period: Period, d: Data): Projection {
   const currentMonth = d.today.slice(0, 7);
   const s = d.settings;
 
-  // Recurring income: every active client's retainer plus hosting, each month.
-  const mrr = d.clients
-    .filter((c) => c.status === "active")
-    .reduce((sum, c) => sum + Number(c.monthly_price ?? 0) + Number(c.hosting_price ?? 0), 0);
-  const recurringRevenue = mrr * n;
+  // Recurring income: each client's retainer and hosting on the plan that applies that month.
+  const recurringRevenue = period.months.reduce((sum, m) => sum + clientIncomeFor(d.clients, d.clientTerms, m), 0);
 
   // Booked one-time projects: unpaid balance, counted in the month they are due (or started).
   const invoiced = new Map<string, number>();

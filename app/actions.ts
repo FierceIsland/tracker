@@ -59,17 +59,32 @@ export async function deleteTime(formData: FormData) {
 
 export async function addClient(formData: FormData) {
   const sb = await supabaseServer();
-  await sb.from("clients").insert({
+  const status = String(formData.get("status") ?? "active");
+  const startedOn = toStr(formData.get("started_on"));
+  const row = {
     name: String(formData.get("name") ?? "").trim(),
     trade: toStr(formData.get("trade")),
-    status: String(formData.get("status") ?? "active"),
+    status,
     package: toStr(formData.get("package")),
     monthly_price: toNum(formData.get("monthly_price")),
     hosting_price: toNum(formData.get("hosting_price")),
-    started_on: toStr(formData.get("started_on")),
+    started_on: startedOn,
     notes: toStr(formData.get("notes")),
-  });
+  };
+  const { data: created } = await sb.from("clients").insert(row).select("id").single();
+  // First row of the plan history, so later changes never rewrite earlier months.
+  if (created) {
+    await sb.from("client_terms").insert({
+      client_id: created.id,
+      effective_from: startedOn ?? todayBoise(),
+      package: row.package,
+      monthly_price: row.monthly_price,
+      hosting_price: row.hosting_price,
+      note: "Starting terms",
+    });
+  }
   revalidatePath("/clients");
+  revalidatePath("/projection");
   revalidatePath("/");
 }
 
@@ -234,6 +249,84 @@ export async function saveSettings(formData: FormData) {
     updated_at: new Date().toISOString(),
   });
   revalidatePath("/settings");
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+// ---- Client edits and plan history ----------------------------------------
+
+export async function updateClient(formData: FormData) {
+  const sb = await supabaseServer();
+  const id = String(formData.get("id"));
+  const status = String(formData.get("status") ?? "active");
+  const base = {
+    name: String(formData.get("name") ?? "").trim(),
+    trade: toStr(formData.get("trade")),
+    status,
+    started_on: toStr(formData.get("started_on")),
+    notes: toStr(formData.get("notes")),
+  };
+  // Active clients have no end month. Paused or churned ones keep the last month they were billed.
+  const endedOn = status === "active" || status === "prospect" ? null : (toStr(formData.get("ended_on")) ?? todayBoise());
+  const { error } = await sb.from("clients").update({ ...base, ended_on: endedOn }).eq("id", id);
+  // A database without the ended_on column yet: save everything else.
+  if (error) await sb.from("clients").update(base).eq("id", id);
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${id}`);
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+// A plan change starts on the date you give. Earlier months keep the earlier plan.
+export async function changePlan(formData: FormData) {
+  const sb = await supabaseServer();
+  const clientId = String(formData.get("client_id"));
+  const effectiveFrom = toStr(formData.get("effective_from")) ?? todayBoise();
+  const next = {
+    package: toStr(formData.get("package")),
+    monthly_price: toNum(formData.get("monthly_price")),
+    hosting_price: toNum(formData.get("hosting_price")),
+  };
+
+  const { data: client } = await sb.from("clients").select("*").eq("id", clientId).maybeSingle();
+  if (!client) return;
+
+  // A client with no history yet: save their old terms first so the past is not rewritten.
+  const { count } = await sb.from("client_terms").select("id", { count: "exact", head: true }).eq("client_id", clientId);
+  if (!count) {
+    const start = client.started_on ?? String(client.created_at).slice(0, 10);
+    await sb.from("client_terms").insert({
+      client_id: clientId,
+      effective_from: start < effectiveFrom ? start : effectiveFrom,
+      package: client.package,
+      monthly_price: client.monthly_price ?? 0,
+      hosting_price: client.hosting_price ?? 0,
+      note: "Starting terms",
+    });
+  }
+
+  await sb.from("client_terms").insert({
+    client_id: clientId,
+    effective_from: effectiveFrom,
+    ...next,
+    note: toStr(formData.get("note")),
+  });
+
+  // Keep the client's "current" numbers in step once the change has started.
+  if (effectiveFrom.slice(0, 7) <= todayBoise().slice(0, 7)) {
+    await sb.from("clients").update(next).eq("id", clientId);
+  }
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/projection");
+  revalidatePath("/");
+}
+
+export async function deleteTerms(formData: FormData) {
+  const sb = await supabaseServer();
+  const clientId = String(formData.get("client_id"));
+  await sb.from("client_terms").delete().eq("id", String(formData.get("id")));
+  revalidatePath(`/clients/${clientId}`);
   revalidatePath("/projection");
   revalidatePath("/");
 }

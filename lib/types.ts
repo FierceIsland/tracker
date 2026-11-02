@@ -9,6 +9,8 @@ export type Client = {
   monthly_price: number | null;
   hosting_price: number | null;
   started_on: string | null;
+  ended_on: string | null; // last month billed, for paused or churned clients
+  created_at: string;
   notes: string | null;
 };
 
@@ -68,5 +70,16 @@ export type RecurringCost = {
   active: boolean;
   started_on: string | null; // first month charged
   ended_on: string | null; // last month charged; null means still running
+  created_at: string;
+};
+
+export type ClientTerm = {
+  id: string;
+  client_id: string;
+  effective_from: string;
+  package: string | null;
+  monthly_price: number;
+  hosting_price: number;
+  note: string | null;
   created_at: string;
 };

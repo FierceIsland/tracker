@@ -2,9 +2,10 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { buildPeriods, monthKeys, monthlyCostFor, project, type Projection } from "@/lib/projection";
+import { clientIncomeFor } from "@/lib/clientTerms";
 import { todayBoise, usd } from "@/lib/format";
 import { card, td, th } from "@/lib/ui";
-import type { Client, Expense, Invoice, Project, RecurringCost } from "@/lib/types";
+import type { Client, ClientTerm, Expense, Invoice, Project, RecurringCost } from "@/lib/types";
 
 type Row = { label: string; get: (p: Projection) => number; bold?: boolean; muted?: boolean };
 
@@ -46,9 +47,10 @@ export default async function ProjectionPage() {
   const currentMonth = today.slice(0, 7);
   const historyStart = monthKeys(today, -6, 1)[0] + "-01";
 
-  const [settings, cl, pr, inv, ex, rc] = await Promise.all([
+  const [settings, cl, ct, pr, inv, ex, rc] = await Promise.all([
     getSettings(sb),
     sb.from("clients").select("*"),
+    sb.from("client_terms").select("*"),
     sb.from("projects").select("*"),
     sb.from("invoices").select("*"),
     sb.from("expenses").select("*").gte("incurred_on", historyStart),
@@ -57,6 +59,7 @@ export default async function ProjectionPage() {
 
   const data = {
     clients: (cl.data ?? []) as Client[],
+    clientTerms: (ct.data ?? []) as ClientTerm[],
     projects: (pr.data ?? []) as Project[],
     invoices: (inv.data ?? []) as Invoice[],
     expenses: (ex.data ?? []) as Expense[],
@@ -74,7 +77,8 @@ export default async function ProjectionPage() {
   const history = monthKeys(today, -6, 18).map((month) => {
     const recurring = monthlyCostFor(data.recurring, month);
     const oneOff = data.expenses.filter((e) => e.incurred_on.slice(0, 7) === month).reduce((s, e) => s + Number(e.amount), 0);
-    return { month, recurring, oneOff, total: recurring + oneOff };
+    const income = clientIncomeFor(data.clients, data.clientTerms, month);
+    return { month, income, recurring, oneOff, total: recurring + oneOff };
   });
 
   return (
@@ -122,12 +126,13 @@ export default async function ProjectionPage() {
       </div>
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Costs month by month</h2>
+        <h2 className="font-semibold">Month by month</h2>
         <div className={card + " overflow-x-auto p-0"}>
           <table className="w-full">
             <thead className="border-b border-stone-200">
               <tr>
                 <th className={th}>Month</th>
+                <th className={th + " text-right"}>Client income</th>
                 <th className={th + " text-right"}>Subscriptions</th>
                 <th className={th + " text-right"}>One-off</th>
                 <th className={th + " text-right"}>Total</th>
@@ -142,6 +147,7 @@ export default async function ProjectionPage() {
                       {h.month < currentMonth ? "past" : h.month === currentMonth ? "this month" : "projected"}
                     </span>
                   </td>
+                  <td className={td + " text-right"}>{usd(h.income)}</td>
                   <td className={td + " text-right"}>{usd(h.recurring)}</td>
                   <td className={td + " text-right"}>{usd(h.oneOff)}</td>
                   <td className={td + " text-right"}>{usd(h.total)}</td>
@@ -151,7 +157,8 @@ export default async function ProjectionPage() {
           </table>
         </div>
         <p className="text-xs text-stone-500">
-          A canceled subscription stays in every month from its start through its last month, so past months show what you actually paid. Direct costs of new sites are not in this table.
+          Client income comes from each client&apos;s plan history, so a past month shows the plan that client was on then. A canceled subscription stays in every
+          month from its start through its last month. This table covers recurring client income and costs only. Project payments and direct costs of new sites are not in it.
         </p>
       </section>
 

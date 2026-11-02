@@ -2,8 +2,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getSettings, RETAINER_BUCKETS } from "@/lib/settings";
 import { daysAgo, hrs, monthStart, usd } from "@/lib/format";
 import { monthlyCostFor } from "@/lib/projection";
+import { clientIncomeFor, termsForMonth } from "@/lib/clientTerms";
 import { card, td, th } from "@/lib/ui";
-import type { Bucket, Client, Expense, Invoice, Project, RecurringCost, TimeEntry } from "@/lib/types";
+import type { Bucket, Client, ClientTerm, Expense, Invoice, Project, RecurringCost, TimeEntry } from "@/lib/types";
 
 function Stat({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
@@ -20,7 +21,7 @@ export default async function Dashboard() {
   const start = monthStart();
   const since90 = daysAgo(90);
 
-  const [settings, b, tm, t90, tSite, pr, cl, inv, ex, rc] = await Promise.all([
+  const [settings, b, tm, t90, tSite, pr, cl, inv, ex, rc, ct] = await Promise.all([
     getSettings(sb),
     sb.from("buckets").select("*").order("sort"),
     sb.from("time_entries").select("*").gte("entry_date", start),
@@ -31,6 +32,7 @@ export default async function Dashboard() {
     sb.from("invoices").select("*"),
     sb.from("expenses").select("*").gte("incurred_on", start),
     sb.from("recurring_costs").select("*"),
+    sb.from("client_terms").select("*"),
   ]);
 
   const buckets = (b.data ?? []) as Bucket[];
@@ -42,6 +44,7 @@ export default async function Dashboard() {
   const invoices = (inv.data ?? []) as Invoice[];
   const expenses = (ex.data ?? []) as Expense[];
   const recurring = (rc.data ?? []) as RecurringCost[];
+  const clientTerms = (ct.data ?? []) as ClientTerm[];
 
   // Hours this month, by bucket, against the plan.
   const byBucket = new Map<string, number>();
@@ -59,7 +62,7 @@ export default async function Dashboard() {
   const avgSite = doneSiteHours.length ? doneSiteHours.reduce((s, v) => s + v, 0) / doneSiteHours.length : 0;
 
   // Average retainer hours per active retainer client per month (last 90 days).
-  const retainerClients = clients.filter((x) => x.status === "active" && Number(x.monthly_price ?? 0) > 0);
+  const retainerClients = clients.filter((x) => (termsForMonth(x, clientTerms, start.slice(0, 7))?.monthly ?? 0) > 0);
   const retainerHours90 = entries90
     .filter((e) => RETAINER_BUCKETS.includes(e.bucket_key) && e.client_id)
     .reduce((s, e) => s + Number(e.hours), 0);
@@ -72,9 +75,7 @@ export default async function Dashboard() {
   const oneOff = expenses.reduce((s, x) => s + Number(x.amount), 0);
   const recurringMonthly = monthlyCostFor(recurring, start.slice(0, 7));
   const costsMonth = oneOff + recurringMonthly;
-  const mrr = clients
-    .filter((x) => x.status === "active")
-    .reduce((s, x) => s + Number(x.monthly_price ?? 0) + Number(x.hosting_price ?? 0), 0);
+  const mrr = clientIncomeFor(clients, clientTerms, start.slice(0, 7));
 
   const flag = (actual: number, target: number) => (actual > 0 && actual > target ? "text-red-700 font-semibold" : "");
 

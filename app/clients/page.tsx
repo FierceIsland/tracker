@@ -1,22 +1,26 @@
+import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { addClient } from "../actions";
+import { termsForMonth } from "@/lib/clientTerms";
 import { button, card, input, label, td, th } from "@/lib/ui";
-import { usd } from "@/lib/format";
-import type { Client } from "@/lib/types";
+import { todayBoise, usd } from "@/lib/format";
+import type { Client, ClientTerm } from "@/lib/types";
 
 export default async function ClientsPage() {
   const sb = await supabaseServer();
-  const { data } = await sb.from("clients").select("*").order("name");
-  const clients = (data ?? []) as Client[];
-  const mrr = clients
-    .filter((c) => c.status === "active")
-    .reduce((sum, c) => sum + Number(c.monthly_price ?? 0) + Number(c.hosting_price ?? 0), 0);
+  const [c, t] = await Promise.all([sb.from("clients").select("*").order("name"), sb.from("client_terms").select("*")]);
+  const clients = (c.data ?? []) as Client[];
+  const history = (t.data ?? []) as ClientTerm[];
+  const thisMonth = todayBoise().slice(0, 7);
+
+  const rows = clients.map((x) => ({ client: x, terms: termsForMonth(x, history, thisMonth) }));
+  const mrr = rows.reduce((sum, r) => sum + (r.terms ? r.terms.monthly + r.terms.hosting : 0), 0);
 
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-bold">Clients</h1>
-        <p className="text-sm text-stone-600">Active monthly revenue: {usd(mrr)}</p>
+        <p className="text-sm text-stone-600">Monthly revenue now: {usd(mrr)}</p>
       </div>
 
       <form action={addClient} className={card + " grid gap-3 sm:grid-cols-6"}>
@@ -33,8 +37,6 @@ export default async function ClientsPage() {
           <select name="status" className={input} defaultValue="active">
             <option value="prospect">Prospect</option>
             <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="churned">Churned</option>
           </select>
         </div>
         <div className="sm:col-span-2">
@@ -51,7 +53,7 @@ export default async function ClientsPage() {
         </div>
         <div>
           <label className={label}>Started</label>
-          <input name="started_on" type="date" className={input} />
+          <input name="started_on" type="date" defaultValue={todayBoise()} className={input} />
         </div>
         <div className="sm:col-span-2">
           <label className={label}>Notes</label>
@@ -69,25 +71,31 @@ export default async function ClientsPage() {
               <th className={th}>Client</th>
               <th className={th}>Trade</th>
               <th className={th}>Status</th>
-              <th className={th}>Package</th>
+              <th className={th}>Package now</th>
               <th className={th}>Retainer</th>
               <th className={th}>Hosting</th>
+              <th className={th}></th>
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
-              <tr key={c.id} className="border-b border-stone-100 last:border-0">
-                <td className={td + " font-medium"}>{c.name}</td>
-                <td className={td}>{c.trade}</td>
-                <td className={td}>{c.status}</td>
-                <td className={td}>{c.package}</td>
-                <td className={td}>{usd(Number(c.monthly_price ?? 0))}</td>
-                <td className={td}>{usd(Number(c.hosting_price ?? 0))}</td>
+            {rows.map(({ client: x, terms }) => (
+              <tr key={x.id} className={"border-b border-stone-100 last:border-0" + (terms ? "" : " text-stone-400")}>
+                <td className={td + " font-medium"}>{x.name}</td>
+                <td className={td}>{x.trade}</td>
+                <td className={td}>{x.status}</td>
+                <td className={td}>{terms?.package ?? ""}</td>
+                <td className={td}>{terms ? usd(terms.monthly) : ""}</td>
+                <td className={td}>{terms ? usd(terms.hosting) : ""}</td>
+                <td className={td}>
+                  <Link href={`/clients/${x.id}`} className="text-xs underline">
+                    Edit / history
+                  </Link>
+                </td>
               </tr>
             ))}
             {clients.length === 0 && (
               <tr>
-                <td className={td + " text-stone-500"} colSpan={6}>
+                <td className={td + " text-stone-500"} colSpan={7}>
                   No clients yet.
                 </td>
               </tr>
