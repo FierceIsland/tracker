@@ -1,5 +1,5 @@
 import type { Client, ClientTerm, Expense, Invoice, Project, RecurringCost } from "./types";
-import type { Settings } from "./settings";
+import { siteCostTotal, type Settings } from "./settings";
 import { monthlyEquivalent } from "./format";
 import { clientIncomeFor } from "./clientTerms";
 
@@ -107,7 +107,8 @@ export function project(period: Period, d: Data): Projection {
   const oneOffCosts = d.expenses
     .filter((e) => months.has(e.incurred_on.slice(0, 7)))
     .reduce((sum, e) => sum + Number(e.amount), 0);
-  const siteCosts = (bookedSites + expectedSites) * s.direct_cost_per_site;
+  // Per-site costs (manpower and compute) are charged only for sites actually being built in the window.
+  const siteCosts = (bookedSites + expectedSites) * siteCostTotal(s);
   const processingFees = revenue * s.processing_fee_rate;
   const expenses = recurringCosts + oneOffCosts + siteCosts + processingFees;
 

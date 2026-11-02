@@ -13,11 +13,16 @@ export type Settings = {
   // Revenue assumptions
   new_sites_per_month: number; // expected new sites not yet entered as projects
   avg_site_price: number;
-  direct_cost_per_site: number; // per-site costs like developer and compute; monthly tools are recurring costs instead
   processing_fee_rate: number; // payment processing fee as a fraction of all income
+  // Costs charged only when a new site is built. Monthly tools are recurring costs instead.
+  site_cost_developer: number;
+  site_cost_designer: number;
+  site_cost_compute: number;
+  site_cost_other: number;
 };
 
-// Everything starts blank. The only built-in number is the 3% payment processing fee.
+// Everything starts blank except the 3% processing fee and the tax rates.
+// The payroll rates are the standard 7.65%. The income tax rate is a placeholder to confirm with an accountant.
 export const DEFAULT_SETTINGS: Settings = {
   planned: {
     site_build: 0,
@@ -38,16 +43,22 @@ export const DEFAULT_SETTINGS: Settings = {
   target_retainer_hours: 0,
   owner_pay_target: 0,
   owner_salary: 0,
-  employer_payroll_rate: 0,
-  employee_payroll_rate: 0,
-  income_tax_rate: 0,
+  employer_payroll_rate: 0.0765,
+  employee_payroll_rate: 0.0765,
+  income_tax_rate: 0.24,
   new_sites_per_month: 0,
   avg_site_price: 0,
-  direct_cost_per_site: 0,
   processing_fee_rate: 0.03,
+  site_cost_developer: 0,
+  site_cost_designer: 0,
+  site_cost_compute: 0,
+  site_cost_other: 0,
 };
 
 export const RETAINER_BUCKETS = ["seo", "aeo_geo", "gbp", "reviews", "ads"];
+
+export const siteCostTotal = (s: Settings) =>
+  s.site_cost_developer + s.site_cost_designer + s.site_cost_compute + s.site_cost_other;
 
 export async function getSettings(sb: SupabaseClient): Promise<Settings> {
   const { data } = await sb.from("model_settings").select("settings").maybeSingle();

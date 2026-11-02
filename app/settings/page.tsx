@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { resetSettings, saveSettings } from "../actions";
-import { getSettings } from "@/lib/settings";
+import { getSettings, siteCostTotal } from "@/lib/settings";
+import { usd } from "@/lib/format";
 import { button, card, ghostButton, input, label } from "@/lib/ui";
 import type { Bucket } from "@/lib/types";
 
@@ -15,7 +16,7 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold">Settings</h1>
       <p className="text-sm text-stone-600">
-        Plan numbers from your pricing model. The dashboard compares logged hours against them, and the Projection page uses the money assumptions.
+        The dashboard compares logged hours against your plan, and the Projection page uses the money settings below.
       </p>
 
       <form action={saveSettings} className={card + " space-y-5"}>
@@ -40,13 +41,38 @@ export default async function SettingsPage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-stone-500">
-            Nothing is filled in until you enter it. Standard payroll tax is 7.65% each for the employer and the employee (the Social Security part stops at a yearly wage cap). Your accountant can confirm a reasonable salary and your effective income tax rate. Income tax applies to salary plus the profit passed through to you.
+            Payroll tax is the standard 7.65% each for the employer and the employee (the Social Security part stops at a yearly wage cap). The income tax rate is a placeholder, so confirm it and your salary with your accountant. Income tax applies to salary plus the profit passed through to you.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-sm font-semibold">Cost per new site</h2>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <label className={label}>Developer</label>
+              <input name="site_cost_developer" type="number" step="25" min="0" defaultValue={settings.site_cost_developer} className={input} />
+            </div>
+            <div>
+              <label className={label}>Designer</label>
+              <input name="site_cost_designer" type="number" step="25" min="0" defaultValue={settings.site_cost_designer} className={input} />
+            </div>
+            <div>
+              <label className={label}>Claude compute</label>
+              <input name="site_cost_compute" type="number" step="25" min="0" defaultValue={settings.site_cost_compute} className={input} />
+            </div>
+            <div>
+              <label className={label}>Other</label>
+              <input name="site_cost_other" type="number" step="25" min="0" defaultValue={settings.site_cost_other} className={input} />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-stone-500">
+            Total per new site: {usd(siteCostTotal(settings))}. These costs are charged only in a month when a new site is built, either one of your booked website projects or an expected new site. Monthly tools like Figma and Adobe are different: add them on the Money page as recurring costs, since they come out every month no matter what.
           </p>
         </div>
 
         <div>
           <h2 className="mb-2 text-sm font-semibold">Projection assumptions</h2>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className={label}>Expected new sites / month</label>
               <input name="new_sites_per_month" type="number" step="0.5" min="0" defaultValue={settings.new_sites_per_month} className={input} />
@@ -56,16 +82,12 @@ export default async function SettingsPage() {
               <input name="avg_site_price" type="number" step="100" min="0" defaultValue={settings.avg_site_price} className={input} />
             </div>
             <div>
-              <label className={label}>Direct cost per new site</label>
-              <input name="direct_cost_per_site" type="number" step="50" min="0" defaultValue={settings.direct_cost_per_site} className={input} />
-            </div>
-            <div>
               <label className={label}>Payment processing fee (%)</label>
               <input name="processing_fee_pct" type="number" step="0.1" min="0" max="100" defaultValue={pct(settings.processing_fee_rate)} className={input} />
             </div>
           </div>
           <p className="mt-2 text-xs text-stone-500">
-            Leave expected sites at 0 if you add every upcoming site as a project. Direct cost per new site is for per-site costs like your developer and Claude compute. Monthly tools like Figma go on the Money page as recurring costs, so their share per site shrinks as you build more. Payment processing is the separate percentage on all income.
+            Leave expected sites at 0 if you add every upcoming site as a project. Payment processing is taken out of all income.
           </p>
         </div>
 
@@ -100,7 +122,7 @@ export default async function SettingsPage() {
       </form>
 
       <form action={resetSettings} className={card + " flex flex-wrap items-center justify-between gap-3"}>
-        <p className="text-xs text-stone-500">Clear every saved setting back to blank. Only the 3% processing fee stays. This does not touch clients, costs, or time.</p>
+        <p className="text-xs text-stone-500">Clear every saved setting back to its starting value: blank, except the 3% processing fee and the tax rates. This does not touch clients, costs, or time.</p>
         <button className={ghostButton}>Clear all settings</button>
       </form>
     </div>
