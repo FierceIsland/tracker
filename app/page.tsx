@@ -80,7 +80,7 @@ export default async function Dashboard() {
   const costsMonth = oneOff + recurringMonthly + processingFees;
   const profitMonth = invoicedTotal - costsMonth;
 
-  const flag = (actual: number, target: number) => (actual > 0 && actual > target ? "text-red-700 font-semibold" : "");
+  const flag = (actual: number, target: number) => (target > 0 && actual > target ? "text-red-700 font-semibold" : "");
 
   return (
     <div className="space-y-6">
@@ -97,12 +97,12 @@ export default async function Dashboard() {
         <Stat
           title="Avg hours per website"
           value={avgSite ? hrs(avgSite) : "No data"}
-          sub={"target " + hrs(settings.target_site_hours) + " · " + doneSiteHours.length + " finished builds"}
+          sub={(settings.target_site_hours ? "target " + hrs(settings.target_site_hours) : "no target set") + " · " + doneSiteHours.length + " finished builds"}
         />
         <Stat
           title="Avg hours per retainer client / mo"
           value={perClient ? hrs(perClient) : "No data"}
-          sub={"target " + hrs(settings.target_retainer_hours) + " · last 90 days"}
+          sub={(settings.target_retainer_hours ? "target " + hrs(settings.target_retainer_hours) : "no target set") + " · last 90 days"}
         />
         <Stat
           title="Costs this month"

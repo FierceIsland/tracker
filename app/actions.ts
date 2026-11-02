@@ -340,3 +340,17 @@ export async function deleteInvoice(formData: FormData) {
   revalidatePath("/projection");
   revalidatePath("/");
 }
+
+// Clears every saved setting, so the defaults (blank, plus the 3% fee) apply again.
+export async function resetSettings() {
+  const sb = await supabaseServer();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) redirect("/login");
+  await sb.from("model_settings").delete().eq("user_id", user.id);
+  revalidatePath("/settings");
+  revalidatePath("/projection");
+  revalidatePath("/");
+  redirect("/settings");
+}

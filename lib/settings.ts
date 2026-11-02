@@ -13,38 +13,37 @@ export type Settings = {
   // Revenue assumptions
   new_sites_per_month: number; // expected new sites not yet entered as projects
   avg_site_price: number;
-  direct_cost_per_site: number; // excludes payment processing, which is a separate percentage
+  direct_cost_per_site: number; // per-site costs like developer and compute; monthly tools are recurring costs instead
   processing_fee_rate: number; // payment processing fee as a fraction of all income
 };
 
-// Defaults come from the pricing model: 2 sites a month at 10 hours, retainers about 67 hours.
-// The tax numbers are placeholders until an accountant gives the real ones.
+// Everything starts blank. The only built-in number is the 3% payment processing fee.
 export const DEFAULT_SETTINGS: Settings = {
   planned: {
-    site_build: 20,
-    seo: 25,
-    aeo_geo: 20,
-    gbp: 5,
-    reviews: 4,
-    ads: 13,
+    site_build: 0,
+    seo: 0,
+    aeo_geo: 0,
+    gbp: 0,
+    reviews: 0,
+    ads: 0,
     drone: 0,
-    package_covered: 10,
-    sales: 25,
-    calls: 10,
-    admin: 8,
-    building: 15,
-    buffer: 7,
+    package_covered: 0,
+    sales: 0,
+    calls: 0,
+    admin: 0,
+    building: 0,
+    buffer: 0,
   },
-  target_site_hours: 10,
-  target_retainer_hours: 6,
-  owner_pay_target: 200000,
-  owner_salary: 80000,
-  employer_payroll_rate: 0.0765,
-  employee_payroll_rate: 0.0765,
-  income_tax_rate: 0.24,
-  new_sites_per_month: 2,
-  avg_site_price: 4500,
-  direct_cost_per_site: 1350,
+  target_site_hours: 0,
+  target_retainer_hours: 0,
+  owner_pay_target: 0,
+  owner_salary: 0,
+  employer_payroll_rate: 0,
+  employee_payroll_rate: 0,
+  income_tax_rate: 0,
+  new_sites_per_month: 0,
+  avg_site_price: 0,
+  direct_cost_per_site: 0,
   processing_fee_rate: 0.03,
 };
 

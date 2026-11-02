@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { saveSettings } from "../actions";
+import { resetSettings, saveSettings } from "../actions";
 import { getSettings } from "@/lib/settings";
-import { button, card, input, label } from "@/lib/ui";
+import { button, card, ghostButton, input, label } from "@/lib/ui";
 import type { Bucket } from "@/lib/types";
 
 const pct = (v: number) => Math.round(v * 1000) / 10;
@@ -40,7 +40,7 @@ export default async function SettingsPage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-stone-500">
-            These are placeholders. Your accountant can tell you a reasonable salary and your effective income tax rate. Income tax applies to salary plus the profit passed through to you.
+            Nothing is filled in until you enter it. Standard payroll tax is 7.65% each for the employer and the employee (the Social Security part stops at a yearly wage cap). Your accountant can confirm a reasonable salary and your effective income tax rate. Income tax applies to salary plus the profit passed through to you.
           </p>
         </div>
 
@@ -65,7 +65,7 @@ export default async function SettingsPage() {
             </div>
           </div>
           <p className="mt-2 text-xs text-stone-500">
-            Set expected sites to 0 if you add every upcoming site as a project. Direct cost per site leaves out payment processing, which is the separate percentage on all income.
+            Leave expected sites at 0 if you add every upcoming site as a project. Direct cost per new site is for per-site costs like your developer and Claude compute. Monthly tools like Figma go on the Money page as recurring costs, so their share per site shrinks as you build more. Payment processing is the separate percentage on all income.
           </p>
         </div>
 
@@ -97,6 +97,11 @@ export default async function SettingsPage() {
         </div>
 
         <button className={button}>Save settings</button>
+      </form>
+
+      <form action={resetSettings} className={card + " flex flex-wrap items-center justify-between gap-3"}>
+        <p className="text-xs text-stone-500">Clear every saved setting back to blank. Only the 3% processing fee stays. This does not touch clients, costs, or time.</p>
+        <button className={ghostButton}>Clear all settings</button>
       </form>
     </div>
   );
