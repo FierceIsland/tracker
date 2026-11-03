@@ -47,7 +47,7 @@ export default async function SettingsPage() {
 
         <div>
           <h2 className="mb-2 text-sm font-semibold">Cost per new site</h2>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-5">
             <div>
               <label className={label}>Developer</label>
               <input name="site_cost_developer" type="number" step="25" min="0" defaultValue={settings.site_cost_developer} className={input} />
@@ -55,6 +55,10 @@ export default async function SettingsPage() {
             <div>
               <label className={label}>Designer</label>
               <input name="site_cost_designer" type="number" step="25" min="0" defaultValue={settings.site_cost_designer} className={input} />
+            </div>
+            <div>
+              <label className={label}>Content editor</label>
+              <input name="site_cost_editor" type="number" step="25" min="0" defaultValue={settings.site_cost_editor} className={input} />
             </div>
             <div>
               <label className={label}>Claude compute</label>

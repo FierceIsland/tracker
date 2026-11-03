@@ -247,6 +247,7 @@ export async function saveSettings(formData: FormData) {
       avg_site_price: toNum(formData.get("avg_site_price")),
       site_cost_developer: toNum(formData.get("site_cost_developer")),
       site_cost_designer: toNum(formData.get("site_cost_designer")),
+      site_cost_editor: toNum(formData.get("site_cost_editor")),
       site_cost_compute: toNum(formData.get("site_cost_compute")),
       site_cost_other: toNum(formData.get("site_cost_other")),
       processing_fee_rate: pct(formData.get("processing_fee_pct")),

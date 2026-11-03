@@ -17,6 +17,7 @@ export type Settings = {
   // Costs charged only when a new site is built. Monthly tools are recurring costs instead.
   site_cost_developer: number;
   site_cost_designer: number;
+  site_cost_editor: number; // content editor
   site_cost_compute: number;
   site_cost_other: number;
 };
@@ -51,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   processing_fee_rate: 0.03,
   site_cost_developer: 0,
   site_cost_designer: 0,
+  site_cost_editor: 0,
   site_cost_compute: 0,
   site_cost_other: 0,
 };
@@ -58,7 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const RETAINER_BUCKETS = ["seo", "aeo_geo", "gbp", "reviews", "ads"];
 
 export const siteCostTotal = (s: Settings) =>
-  s.site_cost_developer + s.site_cost_designer + s.site_cost_compute + s.site_cost_other;
+  s.site_cost_developer + s.site_cost_designer + s.site_cost_editor + s.site_cost_compute + s.site_cost_other;
 
 export async function getSettings(sb: SupabaseClient): Promise<Settings> {
   const { data } = await sb.from("model_settings").select("settings").maybeSingle();
