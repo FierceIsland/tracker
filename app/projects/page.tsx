@@ -109,8 +109,8 @@ export default async function ProjectsPage() {
               const over = x.budget_hours != null && h > Number(x.budget_hours);
               return (
                 <tr key={x.id} className="border-b border-stone-100 last:border-0">
-                  <td className={td + " font-medium"}>{x.name}</td>
-                  <td className={td}>{clientName(x.client_id)}</td>
+                  <td className={td + " font-medium"}><Link href={`/projects/${x.id}`} className="underline">{x.name}</Link></td>
+                  <td className={td}>{x.client_id ? <Link href={`/clients/${x.client_id}`} className="underline">{clientName(x.client_id)}</Link> : ""}</td>
                   <td className={td}>{x.kind}</td>
                   <td className={td}>{usd(price)}</td>
                   <td className={td}>{cost ? usd(cost) : ""}</td>

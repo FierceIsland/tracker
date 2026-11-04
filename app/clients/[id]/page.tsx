@@ -7,12 +7,12 @@ import { monthKeys } from "@/lib/projection";
 import { termsForMonth } from "@/lib/clientTerms";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
 import { hrs, todayBoise, usd } from "@/lib/format";
-import type { Client, ClientTerm } from "@/lib/types";
+import type { Client, ClientTerm, Expense, Invoice, Project, TimeEntry } from "@/lib/types";
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sb = await supabaseServer();
-  const [c, t, ex, tm, settings] = await Promise.all([
+  const [c, t, ex, tm, settings, pj, iv] = await Promise.all([
     sb.from("clients").select("*").eq("id", id).maybeSingle(),
     sb
       .from("client_terms")
@@ -20,10 +20,16 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       .eq("client_id", id)
       .order("effective_from", { ascending: false })
       .order("created_at", { ascending: false }),
-    sb.from("expenses").select("amount,incurred_on,vendor").eq("client_id", id),
-    sb.from("time_entries").select("hours,entry_date").eq("client_id", id),
+    sb.from("expenses").select("*").eq("client_id", id).order("incurred_on", { ascending: false }),
+    sb.from("time_entries").select("*").eq("client_id", id).order("entry_date", { ascending: false }),
     getSettings(sb),
+    sb.from("projects").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+    sb.from("invoices").select("*").eq("client_id", id).order("issued_on", { ascending: false }),
   ]);
+  const projs = (pj.data ?? []) as Project[];
+  const invs = (iv.data ?? []) as Invoice[];
+  const exps = (ex.data ?? []) as Expense[];
+  const times = (tm.data ?? []) as TimeEntry[];
   const client = c.data as Client | null;
   if (!client) notFound();
   const history = (t.data ?? []) as ClientTerm[];
@@ -224,6 +230,56 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             For a paused or churned client, set the last month they were billed. That month still counts, and later months do not. Leave it empty to use today. Active clients ignore this field.
           </p>
         </form>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Projects</h2>
+        <div className={card + " overflow-x-auto p-0"}>
+          <table className="w-full">
+            <thead className="border-b border-stone-200"><tr><th className={th}>Project</th><th className={th}>Type</th><th className={th}>Status</th><th className={th}>Price</th><th className={th}>Invoiced</th><th className={th}>Balance</th></tr></thead>
+            <tbody>
+              {projs.map((x) => {
+                const inv = invs.filter((i) => i.project_id === x.id).reduce((a, i) => a + Number(i.amount), 0);
+                return (
+                  <tr key={x.id} className="border-b border-stone-100 last:border-0">
+                    <td className={td}><Link href={`/projects/${x.id}`} className="underline">{x.name}</Link></td>
+                    <td className={td}>{x.kind}</td><td className={td}>{x.status}</td>
+                    <td className={td}>{usd(Number(x.price ?? 0))}</td><td className={td}>{usd(inv)}</td>
+                    <td className={td}>{usd(Number(x.price ?? 0) - inv)}</td>
+                  </tr>
+                );
+              })}
+              {projs.length === 0 && <tr><td className={td + " text-stone-500"} colSpan={6}>No projects for this client.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Invoices, expenses, and time</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className={card + " space-y-1 text-sm"}>
+            <div className="font-medium">Extra invoices</div>
+            {invs.slice(0, 15).map((i) => (
+              <div key={i.id} className="flex justify-between"><Link href={`/money/invoices/${i.id}`} className="underline">{i.issued_on} {i.description ?? i.number ?? ""}</Link><span>{usd(Number(i.amount))}</span></div>
+            ))}
+            {invs.length === 0 && <div className="text-stone-500">None</div>}
+          </div>
+          <div className={card + " space-y-1 text-sm"}>
+            <div className="font-medium">Expenses</div>
+            {exps.slice(0, 15).map((i) => (
+              <div key={i.id} className="flex justify-between"><Link href={`/money/expenses/${i.id}`} className="underline">{i.incurred_on} {i.vendor}</Link><span>{usd(Number(i.amount))}</span></div>
+            ))}
+            {exps.length === 0 && <div className="text-stone-500">None</div>}
+          </div>
+          <div className={card + " space-y-1 text-sm"}>
+            <div className="font-medium">Time</div>
+            {times.slice(0, 15).map((i) => (
+              <div key={i.id} className="flex justify-between"><Link href={`/time/${i.id}`} className="underline">{i.entry_date} {i.bucket_key}</Link><span>{hrs(Number(i.hours))}</span></div>
+            ))}
+            {times.length === 0 && <div className="text-stone-500">None</div>}
+          </div>
+        </div>
       </section>
 
       <form action={deleteClient} className="space-y-1">

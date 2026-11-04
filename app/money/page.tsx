@@ -97,7 +97,7 @@ export default async function MoneyPage() {
               {invoices.map((x) => (
                 <tr key={x.id} className="border-b border-stone-100 last:border-0">
                   <td className={td}>{x.issued_on}</td>
-                  <td className={td}>{clientName(x.client_id)}</td>
+                  <td className={td}>{x.client_id ? <Link href={`/clients/${x.client_id}`} className="underline">{clientName(x.client_id)}</Link> : ""}</td>
                   <td className={td}>{[x.number, x.description].filter(Boolean).join(" · ")}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
                   <td className={td}>
@@ -315,7 +315,7 @@ export default async function MoneyPage() {
                   <td className={td}>{x.vendor}</td>
                   <td className={td}>{x.category}</td>
                   <td className={td}>{x.kind}</td>
-                  <td className={td}>{clientName(x.client_id)}</td>
+                  <td className={td}>{x.client_id ? <Link href={`/clients/${x.client_id}`} className="underline">{clientName(x.client_id)}</Link> : ""}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
                   <td className={td}>
                     <div className="flex items-center gap-1">

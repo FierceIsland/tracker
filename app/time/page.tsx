@@ -95,8 +95,8 @@ export default async function TimePage() {
               <tr key={e.id} className="border-b border-stone-100 last:border-0">
                 <td className={td}>{e.entry_date}</td>
                 <td className={td}>{bucketLabel(e.bucket_key)}</td>
-                <td className={td}>{clientName(e.client_id)}</td>
-                <td className={td}>{projectName(e.project_id)}</td>
+                <td className={td}>{e.client_id ? <Link href={`/clients/${e.client_id}`} className="underline">{clientName(e.client_id)}</Link> : ""}</td>
+                <td className={td}>{e.project_id ? <Link href={`/projects/${e.project_id}`} className="underline">{projectName(e.project_id)}</Link> : ""}</td>
                 <td className={td}>{hrs(Number(e.hours))}</td>
                 <td className={td + " text-stone-500"}>{e.notes}</td>
                 <td className={td}>

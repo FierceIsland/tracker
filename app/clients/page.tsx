@@ -3,12 +3,22 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { addClient } from "../actions";
 import { termsForMonth } from "@/lib/clientTerms";
 import { button, card, input, label, td, th } from "@/lib/ui";
-import { todayBoise, usd } from "@/lib/format";
+import { hrs, todayBoise, usd } from "@/lib/format";
 import type { Client, ClientTerm } from "@/lib/types";
 
 export default async function ClientsPage() {
   const sb = await supabaseServer();
-  const [c, t] = await Promise.all([sb.from("clients").select("*").order("name"), sb.from("client_terms").select("*")]);
+  const first = todayBoise().slice(0, 7) + "-01";
+  const [c, t, ex, tm] = await Promise.all([
+    sb.from("clients").select("*").order("name"),
+    sb.from("client_terms").select("*"),
+    sb.from("expenses").select("client_id,amount").not("client_id", "is", null).gte("incurred_on", first),
+    sb.from("time_entries").select("client_id,hours").not("client_id", "is", null).gte("entry_date", first),
+  ]);
+  const costBy = new Map<string, number>();
+  for (const e of (ex.data ?? []) as { client_id: string; amount: number }[]) costBy.set(e.client_id, (costBy.get(e.client_id) ?? 0) + Number(e.amount));
+  const hoursBy = new Map<string, number>();
+  for (const e of (tm.data ?? []) as { client_id: string; hours: number }[]) hoursBy.set(e.client_id, (hoursBy.get(e.client_id) ?? 0) + Number(e.hours));
   const clients = (c.data ?? []) as Client[];
   const history = (t.data ?? []) as ClientTerm[];
   const thisMonth = todayBoise().slice(0, 7);
@@ -74,18 +84,22 @@ export default async function ClientsPage() {
               <th className={th}>Package now</th>
               <th className={th}>Retainer</th>
               <th className={th}>Hosting</th>
+              <th className={th}>Costs this month</th>
+              <th className={th}>Hours this month</th>
               <th className={th}></th>
             </tr>
           </thead>
           <tbody>
             {rows.map(({ client: x, terms }) => (
               <tr key={x.id} className={"border-b border-stone-100 last:border-0" + (terms ? "" : " text-stone-400")}>
-                <td className={td + " font-medium"}>{x.name}</td>
+                <td className={td + " font-medium"}><Link href={`/clients/${x.id}`} className="underline">{x.name}</Link></td>
                 <td className={td}>{x.trade}</td>
                 <td className={td}>{x.status}</td>
                 <td className={td}>{terms?.package ?? ""}</td>
                 <td className={td}>{terms ? usd(terms.monthly) : ""}</td>
                 <td className={td}>{terms ? usd(terms.hosting) : ""}</td>
+                <td className={td}>{costBy.get(x.id) ? usd(costBy.get(x.id)!) : ""}</td>
+                <td className={td}>{hoursBy.get(x.id) ? hrs(hoursBy.get(x.id)!) : ""}</td>
                 <td className={td}>
                   <Link href={`/clients/${x.id}`} className="text-xs underline">
                     Edit / history
@@ -95,7 +109,7 @@ export default async function ClientsPage() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td className={td + " text-stone-500"} colSpan={7}>
+                <td className={td + " text-stone-500"} colSpan={9}>
                   No clients yet.
                 </td>
               </tr>
