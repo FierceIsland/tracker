@@ -177,3 +177,5 @@ select c.user_id, c.id, coalesce(c.started_on, c.created_at::date), c.package,
        coalesce(c.monthly_price, 0), coalesce(c.hosting_price, 0), 'Starting terms'
 from clients c
 where not exists (select 1 from client_terms t where t.client_id = c.id);
+-- One retainer project per client, so the app can create them automatically without duplicates.
+create unique index if not exists projects_one_retainer_per_client on projects (client_id) where kind = 'retainer';

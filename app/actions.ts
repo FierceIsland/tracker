@@ -1,5 +1,6 @@
 "use server";
 
+import { ensureRetainers } from "@/lib/retainer";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -68,6 +69,7 @@ export async function addClient(formData: FormData) {
     notes: toStr(formData.get("notes")),
   };
   const { data: created } = await sb.from("clients").insert(row).select("id").single();
+  if (created) await ensureRetainers(sb, [{ id: created.id, name: row.name, status }]);
   // First row of the plan history, so later changes never rewrite earlier months.
   if (created) {
     await sb.from("client_terms").insert({
@@ -473,7 +475,9 @@ export async function removeExpense(formData: FormData) {
 // Plan history goes with the client. Projects, time, invoices, and expenses stay and lose the client link.
 export async function deleteClient(formData: FormData) {
   const sb = await supabaseServer();
-  await sb.from("clients").delete().eq("id", String(formData.get("id")));
+  const clientId = String(formData.get("id"));
+  await sb.from("projects").delete().eq("client_id", clientId).eq("kind", "retainer");
+  await sb.from("clients").delete().eq("id", clientId);
   refreshAll();
   redirect("/clients");
 }

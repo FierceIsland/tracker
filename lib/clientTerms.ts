@@ -42,3 +42,28 @@ export function clientIncomeFor(clients: Client[], history: ClientTerm[], month:
     return sum + (t ? t.monthly + t.hosting : 0);
   }, 0);
 }
+
+// Everything a client's plan has brought in, from their first month through the current one.
+export function planIncomeToDate(client: Client, history: ClientTerm[], today: string): number {
+  const mine = history.filter((h) => h.client_id === client.id);
+  const first = [client.started_on, client.created_at, ...mine.map((h) => h.effective_from)]
+    .filter(Boolean)
+    .map((d) => (d as string).slice(0, 7))
+    .sort()[0];
+  if (!first) return 0;
+  const end = today.slice(0, 7);
+  let [y, m] = first.split("-").map(Number);
+  let total = 0;
+  for (;;) {
+    const mk = `${y}-${String(m).padStart(2, "0")}`;
+    if (mk > end) break;
+    const t = termsForMonth(client, history, mk);
+    if (t) total += t.monthly + t.hosting;
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return total;
+}

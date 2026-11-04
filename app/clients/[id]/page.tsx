@@ -4,7 +4,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { changePlan, deleteClient, deleteTerms, updateClient } from "../../actions";
 import { getSettings } from "@/lib/settings";
 import { monthKeys } from "@/lib/projection";
-import { termsForMonth } from "@/lib/clientTerms";
+import { planIncomeToDate, termsForMonth } from "@/lib/clientTerms";
+import { ensureRetainers } from "@/lib/retainer";
+import { stats } from "@/lib/projectStats";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
 import { hrs, todayBoise, usd } from "@/lib/format";
 import type { Client, ClientTerm, Expense, Invoice, Project, TimeEntry } from "@/lib/types";
@@ -12,6 +14,8 @@ import type { Client, ClientTerm, Expense, Invoice, Project, TimeEntry } from "@
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sb = await supabaseServer();
+  const { data: pre } = await sb.from("clients").select("*").eq("id", id).maybeSingle();
+  if (pre) await ensureRetainers(sb, [pre as Client]);
   const [c, t, ex, tm, settings, pj, iv] = await Promise.all([
     sb.from("clients").select("*").eq("id", id).maybeSingle(),
     sb
@@ -64,6 +68,21 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const [ty, tmn] = today.split("-").map(Number);
   const span = Math.max(1, (ty - fy) * 12 + (tmn - fm) + 1);
   const life = add(monthKeys(today, -(span - 1), span).map(calc));
+
+  const sumP = <T extends { project_id: string | null }>(rows: T[], pid: string, v: (r: T) => number) =>
+    rows.filter((r) => r.project_id === pid).reduce((a, r) => a + v(r), 0);
+  const projRows = projs.map((x) => {
+    const plan = x.kind === "retainer" ? planIncomeToDate(client, history, today) : 0;
+    const income = sumP(invs, x.id, (r) => Number(r.amount)) + plan;
+    return { x, st: stats(income, sumP(exps, x.id, (r) => Number(r.amount)), sumP(times, x.id, (r) => Number(r.hours)), feeRate) };
+  });
+  const noProj = <T extends { project_id: string | null }>(rows: T[]) => rows.filter((r) => !r.project_id || !projs.some((x) => x.id === r.project_id));
+  const loose = stats(
+    noProj(invs).reduce((a, r) => a + Number(r.amount), 0),
+    noProj(exps).reduce((a, r) => a + Number(r.amount), 0),
+    noProj(times).reduce((a, r) => a + Number(r.hours), 0),
+    feeRate,
+  );
 
   return (
     <div className="space-y-6">
@@ -252,26 +271,43 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Projects</h2>
+        <h2 className="font-semibold">Every project, retainer included</h2>
         <div className={card + " overflow-x-auto p-0"}>
           <table className="w-full">
-            <thead className="border-b border-stone-200"><tr><th className={th}>Project</th><th className={th}>Type</th><th className={th}>Status</th><th className={th}>Price</th><th className={th}>Invoiced</th><th className={th}>Balance</th></tr></thead>
+            <thead className="border-b border-stone-200">
+              <tr>
+                <th className={th}>Project</th><th className={th}>Type</th><th className={th}>Status</th><th className={th}>Income</th>
+                <th className={th}>Costs</th><th className={th}>Left over</th><th className={th}>Hours</th><th className={th}>$/hr</th>
+              </tr>
+            </thead>
             <tbody>
-              {projs.map((x) => {
-                const inv = invs.filter((i) => i.project_id === x.id).reduce((a, i) => a + Number(i.amount), 0);
-                return (
-                  <tr key={x.id} className="border-b border-stone-100 last:border-0">
-                    <td className={td}><Link href={`/projects/${x.id}`} className="underline">{x.name}</Link></td>
-                    <td className={td}>{x.kind}</td><td className={td}>{x.status}</td>
-                    <td className={td}>{usd(Number(x.price ?? 0))}</td><td className={td}>{usd(inv)}</td>
-                    <td className={td}>{usd(Number(x.price ?? 0) - inv)}</td>
-                  </tr>
-                );
-              })}
-              {projs.length === 0 && <tr><td className={td + " text-stone-500"} colSpan={6}>No projects for this client.</td></tr>}
+              {projRows.map(({ x, st }) => (
+                <tr key={x.id} className="border-b border-stone-100 last:border-0">
+                  <td className={td}><Link href={`/projects/${x.id}`} className="underline">{x.name}</Link></td>
+                  <td className={td}>{x.kind}</td><td className={td}>{x.status}</td>
+                  <td className={td}>{usd(st.income)}</td><td className={td}>{st.costs ? usd(st.costs) : ""}</td>
+                  <td className={td}>{usd(st.net)}</td><td className={td}>{hrs(st.hours)}</td>
+                  <td className={td}>{st.perHour != null ? usd(st.perHour) : ""}</td>
+                </tr>
+              ))}
+              {(loose.income > 0 || loose.costs > 0 || loose.hours > 0) && (
+                <tr className="border-b border-stone-100 text-stone-500">
+                  <td className={td} colSpan={3}>Tagged to the client, not to a project</td>
+                  <td className={td}>{usd(loose.income)}</td><td className={td}>{loose.costs ? usd(loose.costs) : ""}</td>
+                  <td className={td}>{usd(loose.net)}</td><td className={td}>{hrs(loose.hours)}</td>
+                  <td className={td}>{loose.perHour != null ? usd(loose.perHour) : ""}</td>
+                </tr>
+              )}
+              <tr className="font-semibold">
+                <td className={td} colSpan={3}>Total</td>
+                <td className={td}>{usd(life.income)}</td><td className={td}>{usd(life.costs)}</td>
+                <td className={td}>{usd(life.net)}</td><td className={td}>{hrs(life.hours)}</td>
+                <td className={td}>{life.hours > 0 ? usd(life.net / life.hours) : ""}</td>
+              </tr>
             </tbody>
           </table>
         </div>
+        <p className="text-xs text-stone-500">Retainer income is the plan since the client started. Other projects count income as you invoice them. Left over is after costs and the processing fee.</p>
       </section>
 
       <section className="space-y-2">

@@ -4,7 +4,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { addExpense, addInvoice, addTime, deleteProject, updateProject } from "../../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
 import { hrs, todayBoise, usd } from "@/lib/format";
-import type { Bucket, Client, Expense, Invoice, Project, TimeEntry } from "@/lib/types";
+import { planIncomeToDate } from "@/lib/clientTerms";
+import { getSettings } from "@/lib/settings";
+import { stats } from "@/lib/projectStats";
+import type { Bucket, Client, ClientTerm, Expense, Invoice, Project, TimeEntry } from "@/lib/types";
 
 export default async function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,6 +33,16 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   const costs = sum(ex.data, "amount");
   const invoiced = sum(inv.data, "amount");
   const price = Number(project.price ?? 0);
+  let planIncome = 0;
+  if (project.kind === "retainer" && project.client_id) {
+    const [oc, ot] = await Promise.all([
+      sb.from("clients").select("*").eq("id", project.client_id).maybeSingle(),
+      sb.from("client_terms").select("*").eq("client_id", project.client_id),
+    ]);
+    if (oc.data) planIncome = planIncomeToDate(oc.data as Client, (ot.data ?? []) as ClientTerm[], todayBoise());
+  }
+  const settings = await getSettings(sb);
+  const st = stats(invoiced + planIncome, costs, hours, Number(settings.processing_fee_rate ?? 0));
 
   return (
     <div className="space-y-6">
@@ -39,7 +52,8 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
         </Link>
         <h1 className="text-xl font-bold">{project.name}</h1>
         <p className="text-sm text-stone-600">
-          Price {usd(price)} · invoiced {usd(invoiced)} · costs {usd(costs)} · after costs {usd(price - costs)} · {hrs(hours)} hours logged
+          {project.kind === "retainer" ? `Plan income to date ${usd(planIncome)}` : `Price ${usd(price)} · invoiced ${usd(invoiced)} · balance ${usd(price - invoiced)}`} · costs {usd(costs)} · left over {usd(st.net)} · {hrs(hours)} hours
+          {st.perHour != null ? ` · ${usd(st.perHour)}/hr` : ""}
         </p>
       </div>
 
