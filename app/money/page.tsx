@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { addExpense, addInvoice, addRecurring, cancelRecurring, deleteExpense, deleteInvoice, deleteRecurring, reactivateRecurring } from "../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
@@ -100,10 +101,15 @@ export default async function MoneyPage() {
                   <td className={td}>{[x.number, x.description].filter(Boolean).join(" · ")}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
                   <td className={td}>
-                    <form action={deleteInvoice}>
-                      <input type="hidden" name="id" value={x.id} />
-                      <button className={ghostButton}>Delete</button>
-                    </form>
+                    <div className="flex items-center gap-1">
+                      <Link href={`/money/invoices/${x.id}`} className={ghostButton}>
+                        Edit
+                      </Link>
+                      <form action={deleteInvoice}>
+                        <input type="hidden" name="id" value={x.id} />
+                        <button className={ghostButton}>Delete</button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -312,10 +318,15 @@ export default async function MoneyPage() {
                   <td className={td}>{clientName(x.client_id)}</td>
                   <td className={td}>{usd(Number(x.amount))}</td>
                   <td className={td}>
-                    <form action={deleteExpense}>
-                      <input type="hidden" name="id" value={x.id} />
-                      <button className={ghostButton}>Delete</button>
-                    </form>
+                    <div className="flex items-center gap-1">
+                      <Link href={`/money/expenses/${x.id}`} className={ghostButton}>
+                        Edit
+                      </Link>
+                      <form action={deleteExpense}>
+                        <input type="hidden" name="id" value={x.id} />
+                        <button className={ghostButton}>Delete</button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}

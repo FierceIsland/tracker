@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { addTime, deleteTime } from "../actions";
 import { button, card, ghostButton, input, label, td, th } from "@/lib/ui";
@@ -9,7 +10,7 @@ export default async function TimePage() {
   const [b, p, c, t] = await Promise.all([
     sb.from("buckets").select("*").order("sort"),
     sb.from("projects").select("*").in("status", ["planned", "active"]).order("name"),
-    sb.from("clients").select("id,name"),
+    sb.from("clients").select("id,name").order("name"),
     sb.from("time_entries").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }).limit(60),
   ]);
   const buckets = (b.data ?? []) as Bucket[];
@@ -41,7 +42,22 @@ export default async function TimePage() {
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className={label}>Project (optional)</label>
+          <label className={label}>Client (optional)</label>
+          <select name="client_id" className={input} defaultValue="">
+            <option value="">None</option>
+            {clients.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={label}>Hours</label>
+          <input name="hours" type="number" step="0.25" min="0.25" max="24" required className={input} />
+        </div>
+        <div className="sm:col-span-3">
+          <label className={label}>Project (optional, sets the client too)</label>
           <select name="project_id" className={input} defaultValue="">
             <option value="">None</option>
             {projects.map((x) => (
@@ -52,11 +68,7 @@ export default async function TimePage() {
             ))}
           </select>
         </div>
-        <div>
-          <label className={label}>Hours</label>
-          <input name="hours" type="number" step="0.25" min="0.25" max="24" required className={input} />
-        </div>
-        <div className="sm:col-span-5">
+        <div className="sm:col-span-2">
           <label className={label}>Notes</label>
           <input name="notes" className={input} />
         </div>
@@ -71,6 +83,7 @@ export default async function TimePage() {
             <tr>
               <th className={th}>Date</th>
               <th className={th}>Bucket</th>
+              <th className={th}>Client</th>
               <th className={th}>Project</th>
               <th className={th}>Hours</th>
               <th className={th}>Notes</th>
@@ -82,20 +95,26 @@ export default async function TimePage() {
               <tr key={e.id} className="border-b border-stone-100 last:border-0">
                 <td className={td}>{e.entry_date}</td>
                 <td className={td}>{bucketLabel(e.bucket_key)}</td>
+                <td className={td}>{clientName(e.client_id)}</td>
                 <td className={td}>{projectName(e.project_id)}</td>
                 <td className={td}>{hrs(Number(e.hours))}</td>
                 <td className={td + " text-stone-500"}>{e.notes}</td>
                 <td className={td}>
-                  <form action={deleteTime}>
-                    <input type="hidden" name="id" value={e.id} />
-                    <button className={ghostButton}>Delete</button>
-                  </form>
+                  <div className="flex items-center gap-1">
+                    <Link href={`/time/${e.id}`} className={ghostButton}>
+                      Edit
+                    </Link>
+                    <form action={deleteTime}>
+                      <input type="hidden" name="id" value={e.id} />
+                      <button className={ghostButton}>Delete</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
             {entries.length === 0 && (
               <tr>
-                <td className={td + " text-stone-500"} colSpan={6}>
+                <td className={td + " text-stone-500"} colSpan={7}>
                   No time logged yet.
                 </td>
               </tr>

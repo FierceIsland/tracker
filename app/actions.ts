@@ -29,11 +29,7 @@ export async function signOut() {
 export async function addTime(formData: FormData) {
   const sb = await supabaseServer();
   const projectId = toStr(formData.get("project_id"));
-  let clientId: string | null = null;
-  if (projectId) {
-    const { data } = await sb.from("projects").select("client_id").eq("id", projectId).maybeSingle();
-    clientId = data?.client_id ?? null;
-  }
+  const clientId = await clientForProject(sb, projectId, toStr(formData.get("client_id")));
   await sb.from("time_entries").insert({
     project_id: projectId,
     client_id: clientId,
@@ -119,9 +115,10 @@ export async function setProjectStatus(formData: FormData) {
 
 export async function addInvoice(formData: FormData) {
   const sb = await supabaseServer();
+  const invoiceProject = toStr(formData.get("project_id"));
   await sb.from("invoices").insert({
-    client_id: toStr(formData.get("client_id")),
-    project_id: toStr(formData.get("project_id")),
+    client_id: await clientForProject(sb, invoiceProject, toStr(formData.get("client_id"))),
+    project_id: invoiceProject,
     number: toStr(formData.get("number")),
     description: toStr(formData.get("description")),
     amount: toNum(formData.get("amount")),
@@ -146,9 +143,10 @@ export async function markInvoicePaid(formData: FormData) {
 
 export async function addExpense(formData: FormData) {
   const sb = await supabaseServer();
+  const expenseProject = toStr(formData.get("project_id"));
   await sb.from("expenses").insert({
-    client_id: toStr(formData.get("client_id")),
-    project_id: toStr(formData.get("project_id")),
+    client_id: await clientForProject(sb, expenseProject, toStr(formData.get("client_id"))),
+    project_id: expenseProject,
     vendor: String(formData.get("vendor") ?? "").trim(),
     category: String(formData.get("category") ?? "other"),
     kind: String(formData.get("kind") ?? "direct"),
@@ -357,4 +355,125 @@ export async function resetSettings() {
   revalidatePath("/projection");
   revalidatePath("/");
   redirect("/settings");
+}
+
+// ---- Edit and delete: time, projects, invoices, expenses, clients ----------
+
+// A record tied to a project belongs to that project's client. With no project, use the client picked.
+async function clientForProject(sb: Awaited<ReturnType<typeof supabaseServer>>, projectId: string | null, fallback: string | null) {
+  if (!projectId) return fallback;
+  const { data } = await sb.from("projects").select("client_id").eq("id", projectId).maybeSingle();
+  return data?.client_id ?? fallback;
+}
+
+function refreshAll() {
+  for (const p of ["/", "/time", "/clients", "/projects", "/money", "/projection"]) revalidatePath(p);
+}
+
+export async function updateTime(formData: FormData) {
+  const sb = await supabaseServer();
+  const projectId = toStr(formData.get("project_id"));
+  await sb
+    .from("time_entries")
+    .update({
+      project_id: projectId,
+      client_id: await clientForProject(sb, projectId, toStr(formData.get("client_id"))),
+      bucket_key: String(formData.get("bucket_key")),
+      entry_date: toStr(formData.get("entry_date")) ?? todayBoise(),
+      hours: toNum(formData.get("hours")),
+      notes: toStr(formData.get("notes")),
+    })
+    .eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/time");
+}
+
+export async function removeTime(formData: FormData) {
+  await deleteTime(formData);
+  redirect("/time");
+}
+
+export async function updateProject(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb
+    .from("projects")
+    .update({
+      name: String(formData.get("name") ?? "").trim(),
+      client_id: toStr(formData.get("client_id")),
+      kind: String(formData.get("kind") ?? "website"),
+      price: toNum(formData.get("price")),
+      budget_hours: toStr(formData.get("budget_hours")) ? toNum(formData.get("budget_hours")) : null,
+      status: String(formData.get("status") ?? "active"),
+      started_on: toStr(formData.get("started_on")),
+      due_on: toStr(formData.get("due_on")),
+    })
+    .eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/projects");
+}
+
+// Time, invoices, and expenses stay in the books and just lose their project link.
+export async function deleteProject(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb.from("projects").delete().eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/projects");
+}
+
+export async function updateInvoice(formData: FormData) {
+  const sb = await supabaseServer();
+  const projectId = toStr(formData.get("project_id"));
+  const issued = toStr(formData.get("issued_on")) ?? todayBoise();
+  await sb
+    .from("invoices")
+    .update({
+      project_id: projectId,
+      client_id: await clientForProject(sb, projectId, toStr(formData.get("client_id"))),
+      number: toStr(formData.get("number")),
+      description: toStr(formData.get("description")),
+      amount: toNum(formData.get("amount")),
+      issued_on: issued,
+      paid_on: issued,
+    })
+    .eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/money");
+}
+
+export async function removeInvoice(formData: FormData) {
+  await deleteInvoice(formData);
+  redirect("/money");
+}
+
+export async function updateExpense(formData: FormData) {
+  const sb = await supabaseServer();
+  const projectId = toStr(formData.get("project_id"));
+  await sb
+    .from("expenses")
+    .update({
+      project_id: projectId,
+      client_id: await clientForProject(sb, projectId, toStr(formData.get("client_id"))),
+      vendor: String(formData.get("vendor") ?? "").trim(),
+      category: String(formData.get("category") ?? "other"),
+      kind: String(formData.get("kind") ?? "direct"),
+      amount: toNum(formData.get("amount")),
+      incurred_on: toStr(formData.get("incurred_on")) ?? todayBoise(),
+      notes: toStr(formData.get("notes")),
+    })
+    .eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/money");
+}
+
+export async function removeExpense(formData: FormData) {
+  await deleteExpense(formData);
+  redirect("/money");
+}
+
+// Plan history goes with the client. Projects, time, invoices, and expenses stay and lose the client link.
+export async function deleteClient(formData: FormData) {
+  const sb = await supabaseServer();
+  await sb.from("clients").delete().eq("id", String(formData.get("id")));
+  refreshAll();
+  redirect("/clients");
 }
