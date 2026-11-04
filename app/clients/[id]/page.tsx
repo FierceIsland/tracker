@@ -36,25 +36,34 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const today = todayBoise();
   const now = termsForMonth(client, history, today.slice(0, 7));
 
-  // Last 6 months plus this one: plan income, costs tagged to this client, the processing fee, and hours.
-  const months = monthKeys(today, -6, 7);
+  // Income is plan income (retainer + hosting) plus extra project invoices issued that month.
+  const sumBy = <T,>(rows: T[], key: (r: T) => string, val: (r: T) => number, mk: string) =>
+    rows.filter((r) => key(r).slice(0, 7) === mk).reduce((a, r) => a + val(r), 0);
   const feeRate = Number(settings.processing_fee_rate ?? 0);
-  const rows = months.map((mk) => {
+  const calc = (mk: string) => {
     const tr = termsForMonth(client, history, mk);
-    const income = tr ? tr.monthly + tr.hosting : 0;
-    const costs = ((ex.data ?? []) as { amount: number; incurred_on: string }[])
-      .filter((e) => e.incurred_on.slice(0, 7) === mk)
-      .reduce((a, e) => a + Number(e.amount), 0);
-    const hours = ((tm.data ?? []) as { hours: number; entry_date: string }[])
-      .filter((e) => e.entry_date.slice(0, 7) === mk)
-      .reduce((a, e) => a + Number(e.hours), 0);
+    const plan = tr ? tr.monthly + tr.hosting : 0;
+    const projectIncome = sumBy(invs, (r) => r.issued_on, (r) => Number(r.amount), mk);
+    const income = plan + projectIncome;
+    const costs = sumBy(exps, (r) => r.incurred_on, (r) => Number(r.amount), mk);
+    const hours = sumBy(times, (r) => r.entry_date, (r) => Number(r.hours), mk);
     const fee = income * feeRate;
-    return { mk, income, costs, fee, net: income - costs - fee, hours };
-  });
-  const tot = rows.reduce(
-    (a, r) => ({ income: a.income + r.income, costs: a.costs + r.costs, fee: a.fee + r.fee, net: a.net + r.net, hours: a.hours + r.hours }),
-    { income: 0, costs: 0, fee: 0, net: 0, hours: 0 },
-  );
+    return { mk, plan, projectIncome, income, costs, fee, net: income - costs - fee, hours };
+  };
+  const add = (rs: ReturnType<typeof calc>[]) =>
+    rs.reduce(
+      (a, r) => ({ plan: a.plan + r.plan, projectIncome: a.projectIncome + r.projectIncome, income: a.income + r.income, costs: a.costs + r.costs, fee: a.fee + r.fee, net: a.net + r.net, hours: a.hours + r.hours }),
+      { plan: 0, projectIncome: 0, income: 0, costs: 0, fee: 0, net: 0, hours: 0 },
+    );
+  const rows = monthKeys(today, -6, 7).map(calc);
+  const tot = add(rows);
+  // All time: from the client's first month (or first record) through this month.
+  const dates = [client.started_on, ...history.map((h) => h.effective_from), ...invs.map((i) => i.issued_on), ...exps.map((e) => e.incurred_on), ...times.map((e) => e.entry_date)].filter(Boolean) as string[];
+  const first = dates.sort()[0]?.slice(0, 7) ?? today.slice(0, 7);
+  const [fy, fm] = first.split("-").map(Number);
+  const [ty, tmn] = today.split("-").map(Number);
+  const span = Math.max(1, (ty - fy) * 12 + (tmn - fm) + 1);
+  const life = add(monthKeys(today, -(span - 1), span).map(calc));
 
   return (
     <div className="space-y-6">
@@ -78,6 +87,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               <tr>
                 <th className={th}>Month</th>
                 <th className={th}>Plan income</th>
+                <th className={th}>Project invoices</th>
                 <th className={th}>Costs tagged to client</th>
                 <th className={th}>Processing fee</th>
                 <th className={th}>Left over</th>
@@ -89,7 +99,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               {rows.map((r) => (
                 <tr key={r.mk} className="border-b border-stone-100 last:border-0">
                   <td className={td}>{r.mk}</td>
-                  <td className={td}>{usd(r.income)}</td>
+                  <td className={td}>{usd(r.plan)}</td>
+                  <td className={td}>{r.projectIncome ? usd(r.projectIncome) : ""}</td>
                   <td className={td}>{r.costs ? usd(r.costs) : ""}</td>
                   <td className={td}>{r.fee ? usd(r.fee) : ""}</td>
                   <td className={td}>{usd(r.net)}</td>
@@ -99,7 +110,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               ))}
               <tr className="font-semibold">
                 <td className={td}>Total</td>
-                <td className={td}>{usd(tot.income)}</td>
+                <td className={td}>{usd(tot.plan)}</td>
+                <td className={td}>{usd(tot.projectIncome)}</td>
                 <td className={td}>{usd(tot.costs)}</td>
                 <td className={td}>{usd(tot.fee)}</td>
                 <td className={td}>{usd(tot.net)}</td>
@@ -109,8 +121,15 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             </tbody>
           </table>
         </div>
+        <div className={card + " text-sm"}>
+          <div className="font-medium">All time with this client</div>
+          <div>
+            Income {usd(life.income)} (plan {usd(life.plan)} + projects {usd(life.projectIncome)}) · costs {usd(life.costs)} · processing fees {usd(life.fee)} · left over {usd(life.net)} · {hrs(life.hours)} hours
+          </div>
+          <div className="font-semibold">{life.hours > 0 ? `Effective hourly wage: ${usd(life.net / life.hours)}/hr` : "Log time to this client to see an hourly wage."}</div>
+        </div>
         <p className="text-xs text-stone-500">
-          Expenses and time you tag to this client (directly or through one of their projects) come out of that month&apos;s plan income. Extra invoices for projects are not in plan income.
+          Expenses and time you tag to this client (directly or through one of their projects) come out of that month&apos;s plan income. Project income is the invoices you add for this client, counted in the month issued. A project that is priced but not yet invoiced is not counted.
         </p>
       </section>
 
